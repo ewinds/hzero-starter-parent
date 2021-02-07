@@ -1,7 +1,5 @@
 package org.hzero.core.redis.config;
 
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -14,6 +12,8 @@ import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.util.Assert;
+
+import java.util.List;
 
 /**
  * 动态 RedisTemplate 工厂类
@@ -45,7 +45,7 @@ public class DynamicRedisTemplateFactory<K, V> {
         this.lettuceBuilderCustomizers = lettuceBuilderCustomizers;
     }
 
-    public RedisTemplate<K, V> createRedisTemplate(int database) {
+    public RedisConnectionFactory createRedisConnectionFactory(int database) {
         RedisConnectionFactory redisConnectionFactory = null;
         switch (getRedisClientType()) {
             case REDIS_CLIENT_LETTUCE:
@@ -59,8 +59,13 @@ public class DynamicRedisTemplateFactory<K, V> {
                 redisConnectionFactory = jedisConnectionConfigure.redisConnectionFactory();
                 break;
             default:
-                //
+                LOGGER.warn("Unsupported dynamic redis client.");
         }
+        return redisConnectionFactory;
+    }
+
+    public RedisTemplate<K, V> createRedisTemplate(int database) {
+        RedisConnectionFactory redisConnectionFactory = createRedisConnectionFactory(database);
 
         Assert.notNull(redisConnectionFactory, "redisConnectionFactory is null.");
         return createRedisTemplate(redisConnectionFactory);

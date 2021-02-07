@@ -42,7 +42,11 @@ public class ExcelReader {
         if (cell != null) {
             switch (cell.getCellType()) {
                 case NUMERIC:
-                    return readValue(cell.getNumericCellValue(), column);
+                    if (Column.DATE.equals(column.getColumnType())) {
+                        return ExcelReader.readValue(cell.getNumericCellValue(), column);
+                    } else {
+                        return ExcelReader.readValue(cell.getStringCellValue(), column);
+                    }
                 case STRING:
                     return readValue(cell.getStringCellValue(), column);
                 case FORMULA:
@@ -111,7 +115,7 @@ public class ExcelReader {
                 if (StringUtils.isNotBlank(column.getFormat())) {
                     return new DecimalFormat(column.getFormat()).format(Double.parseDouble(value));
                 } else {
-                    return String.valueOf(Double.parseDouble(value));
+                    return value;
                 }
             default:
                 return null;

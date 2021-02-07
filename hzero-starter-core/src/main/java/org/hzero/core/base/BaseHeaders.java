@@ -23,12 +23,16 @@ public class BaseHeaders {
      * 请求头：菜单ID
      */
     public static final String H_MENU_ID = "H-Menu-Id";
+    /**
+     * 请求头：请求ID
+     */
+    public static final String H_REQUEST_ID = "H-Request-Id";
 
     /**
      * 请求头：租户ID
      */
     public static final String H_TENANT_ID = "H-Tenant-Id";
 
-    public static final String X_REAL_IP =  "X-Real-IP";
+    public static final String X_REAL_IP = "X-Real-IP";
 
 }

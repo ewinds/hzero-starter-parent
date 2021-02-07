@@ -7,7 +7,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import javax.annotation.Nonnull;
 import javax.servlet.http.HttpServletRequest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.hzero.core.base.TokenConstants;
+import org.hzero.core.properties.CoreProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -16,20 +19,15 @@ import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.jwt.JwtHelper;
 import org.springframework.security.jwt.crypto.sign.MacSigner;
 import org.springframework.security.jwt.crypto.sign.Signer;
-import org.springframework.security.oauth2.provider.authentication.OAuth2AuthenticationDetails;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import io.choerodon.core.convertor.ApplicationContextHelper;
 import io.choerodon.core.oauth.CustomUserDetails;
 import io.choerodon.core.oauth.DetailsHelper;
-
-import org.hzero.core.base.TokenConstants;
-import org.hzero.core.properties.CoreProperties;
 
 /**
  * RestTemplate自动复制请求头信息
@@ -66,34 +64,32 @@ public class RequestHeaderCopyInterceptor implements ClientHttpRequestIntercepto
                 }
                 // 没有token的话，补充token，若没有登录信息，补充匿名用户
                 if (!aimHttpHeaders.containsKey(TokenConstants.JWT_TOKEN)) {
-                    ApplicationContext applicationContext = ApplicationContextHelper.getContext();
-                    CoreProperties coreProperties = applicationContext.getBean(CoreProperties.class);
-                    ObjectMapper objectMapper = applicationContext.getBean(ObjectMapper.class);
-                    Signer signer = new MacSigner(coreProperties.getOauthJwtKey());
-                    String token = null;
-                    if (SecurityContextHolder.getContext() != null
-                            && SecurityContextHolder.getContext().getAuthentication() != null
-                            && SecurityContextHolder.getContext().getAuthentication().getDetails() instanceof OAuth2AuthenticationDetails) {
-                        OAuth2AuthenticationDetails details = (OAuth2AuthenticationDetails) SecurityContextHolder
-                                .getContext().getAuthentication().getDetails();
-                        if (details.getTokenType() != null && details.getTokenValue() != null) {
-                            token = details.getTokenType() + " " + details.getTokenValue();
-                        } else if (details.getDecodedDetails() instanceof CustomUserDetails) {
-                            token = OAUTH_TOKEN_PREFIX
-                                    + JwtHelper.encode(objectMapper.writeValueAsString(details.getDecodedDetails()), signer).getEncoded();
-                        }
-                    }
-                    if (token == null) {
-                        token = OAUTH_TOKEN_PREFIX + JwtHelper.encode(objectMapper.writeValueAsString(DetailsHelper.getAnonymousDetails()), signer).getEncoded();
-                    }
+                    String token = buildJwtWithUserDetail();
                     aimHttpHeaders.add(TokenConstants.JWT_TOKEN, token);
                 }
                 aimHttpHeaders.add(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_NO_CACHE);
+            } else {
+                // 判断当前线程是否有用户上下文，有的话，组装token
+                String token = buildJwtWithUserDetail();
+                request.getHeaders().add(TokenConstants.JWT_TOKEN, token);
             }
         } catch (Exception e) {
             logger.warn("can not copy header info automatic", e.getCause());
         }
         return execution.execute(request, body);
+    }
+
+    private String buildJwtWithUserDetail() throws JsonProcessingException {
+        CustomUserDetails customUserDetails = DetailsHelper.getUserDetails();
+        if (customUserDetails == null) {
+            // 获取不到使用匿名用户
+            customUserDetails = DetailsHelper.getAnonymousDetails();
+        }
+        ApplicationContext applicationContext = ApplicationContextHelper.getContext();
+        ObjectMapper objectMapper = applicationContext.getBean(ObjectMapper.class);
+        CoreProperties coreProperties = applicationContext.getBean(CoreProperties.class);
+        Signer signer = new MacSigner(coreProperties.getOauthJwtKey());
+        return OAUTH_TOKEN_PREFIX + JwtHelper.encode(objectMapper.writeValueAsString(customUserDetails), signer).getEncoded();
     }
 
     public void addIgnoreHeader(String key) {

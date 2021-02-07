@@ -98,8 +98,10 @@ public class SingleSheetFillerV2 extends ExcelFillerV2 {
                 parentNode.setChild(node);
                 // 填充数据
                 fillRow(sheet.getWorkbook(), row, colOffset, childItem, childColumns);
+                List<ExportColumn> list = childColumns.stream().filter(ExportColumn::hasChildren).collect(Collectors.toList());
+                boolean mustReturn = list.stream().map(x -> getChildData(data, x)).allMatch(CollectionUtils::isEmpty);
                 // 到达叶子节点，递归填充父级数据
-                if (!hasChildren(childColumns)) {
+                if (!hasChildren(childColumns) || mustReturn) {
                     fillParent(node, sheet.getWorkbook(), row);
                 }
                 int childCount = fillChildren(node, sheet, childItem, colOffset + checkedCount, child);

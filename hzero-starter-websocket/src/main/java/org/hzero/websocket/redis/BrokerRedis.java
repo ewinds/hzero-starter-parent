@@ -4,39 +4,14 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import org.hzero.core.redis.RedisHelper;
-import org.hzero.websocket.config.WebSocketConfig;
 import org.hzero.websocket.constant.WebSocketConstant;
-import org.springframework.context.ApplicationContext;
-
-import io.choerodon.core.convertor.ApplicationContextHelper;
 
 /**
  * 客户端心跳缓存
  *
  * @author shuangfei.zhu@hand-china.com 2019/05/30 15:17
  */
-public class BrokerRedis {
-
-    private static RedisHelper redisHelper;
-
-    private BrokerRedis() {
-    }
-
-    private static RedisHelper getRedisHelper() {
-        ApplicationContext applicationContext = ApplicationContextHelper.getContext();
-        if (redisHelper == null) {
-            redisHelper = applicationContext.getBean(RedisHelper.class);
-        }
-        redisHelper.setCurrentDatabase(applicationContext.getBean(WebSocketConfig.class).getRedisDb());
-        return redisHelper;
-    }
-
-    private static void clear() {
-        if (redisHelper == null) {
-            redisHelper = ApplicationContextHelper.getContext().getBean(RedisHelper.class);
-        }
-        redisHelper.clearCurrentDatabase();
-    }
+public class BrokerRedis extends WebSocketRedis {
 
     /**
      * 生成redis存储key
@@ -45,7 +20,7 @@ public class BrokerRedis {
      * @return key
      */
     private static String getCacheKey(String brokerId) {
-        return WebSocketConstant.REDIS_KEY + ":brokers:" + brokerId;
+        return WebSocketConstant.REDIS_KEY + ":socket-nodes:" + brokerId;
     }
 
     /**
@@ -54,8 +29,13 @@ public class BrokerRedis {
      * @param brokerId 客户端唯一标识
      */
     public static void refreshCache(String brokerId) {
-        getRedisHelper().strSet(getCacheKey(brokerId), WebSocketConstant.ALIVE, 15, TimeUnit.SECONDS);
-        clear();
+        RedisHelper redisHelper = getRedisHelper();
+        redisHelper.setCurrentDatabase(getConfig().getRedisDb());
+        try {
+            redisHelper.strSet(getCacheKey(brokerId), WebSocketConstant.ALIVE, 15, TimeUnit.SECONDS);
+        } finally {
+            redisHelper.clearCurrentDatabase();
+        }
     }
 
     /**
@@ -64,8 +44,14 @@ public class BrokerRedis {
      * @param brokerId 客户端唯一标识
      */
     public static boolean isAlive(String brokerId) {
-        String result = getRedisHelper().strGet(getCacheKey(brokerId));
-        clear();
+        RedisHelper redisHelper = getRedisHelper();
+        redisHelper.setCurrentDatabase(getConfig().getRedisDb());
+        String result;
+        try {
+            result = redisHelper.strGet(getCacheKey(brokerId));
+        } finally {
+            redisHelper.clearCurrentDatabase();
+        }
         return Objects.equals(result, WebSocketConstant.ALIVE);
     }
 }

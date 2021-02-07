@@ -2,6 +2,8 @@ package org.hzero.core.endpoint.request;
 
 import org.springframework.http.HttpMethod;
 
+import org.hzero.actuator.endpoint.CacheRefreshEndpoint;
+
 /**
  * 静态端点，系统中被认为是api不可变的端点
  * @author XCXCXCXCX
@@ -34,9 +36,20 @@ public enum StaticEndpoint {
     GATEWAY_ROUTES_QUERY("/actuator/gateway/routes", HttpMethod.GET, true, "HZERO网关已生效路由信息查询"),
     GATEWAY_ROUTES_REFRESH("/actuator/gateway/refresh", HttpMethod.POST, true, "HZERO网关刷新路由"),
     /**
+     * 数据同步服务端点
+     */
+    DATA_SYNC_PIPELINE_BIND("/actuator/pipeline/bind", HttpMethod.POST, true, "HZERO数据同步服务的管道与数据流的绑定端点"),
+    DATA_SYNC_PIPELINE_UNBIND("/actuator/pipeline/unbind", HttpMethod.POST, true, "HZERO数据同步服务的管道与数据流的解绑端点"),
+    DATA_SYNC_PIPELINE_CREATED("/actuator/pipeline/start", HttpMethod.POST, true, "HZERO数据同步服务的管道创建的端点"),
+    DATA_SYNC_PIPELINE_REMOVED("/actuator/pipeline/stop", HttpMethod.POST, true, "HZERO数据同步服务的管道移除端点"),
+    DATA_SYNC_PIPELINE_VERIFY("/actuator/pipeline/start-verify", HttpMethod.POST, true, "HZERO数据同步服务的管道数据核对启用端点"),
+    DATA_SYNC_PIPELINE_CANCEL_VERIFY("/actuator/pipeline/stop-verify", HttpMethod.POST, true, "HZERO数据同步服务的管道数据核对禁用端点"),
+    /**
      * Actuator Endpoint
      */
-    ACTUATOR_PERMISSION("/v2/actuator/permission", HttpMethod.GET, false, "获取服务权限信息");
+    ACTUATOR_PERMISSION("/v2/actuator/permission", HttpMethod.GET, false, "获取服务权限信息"),
+
+    REFRESH_SERVICE_CACHE(CacheRefreshEndpoint.REFRESH_CACHE_ENDPOINT, HttpMethod.GET, false, "刷新服务缓存");
 
     private String endpoint;
 

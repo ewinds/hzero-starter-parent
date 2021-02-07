@@ -2,25 +2,25 @@ package org.hzero.websocket.helper;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.CollectionUtils;
 import org.hzero.core.base.BaseConstants;
 import org.hzero.websocket.constant.WebSocketConstant;
 import org.hzero.websocket.redis.BrokerListenRedis;
-import org.hzero.websocket.redis.BrokerServerSessionRedis;
+import org.hzero.websocket.redis.BrokerSessionRedis;
+import org.hzero.websocket.redis.GroupSessionRedis;
+import org.hzero.websocket.redis.SessionRedis;
 import org.hzero.websocket.registry.BaseSessionRegistry;
 import org.hzero.websocket.registry.GroupSessionRegistry;
 import org.hzero.websocket.util.SocketSessionUtils;
-import org.hzero.websocket.vo.ClientVO;
 import org.hzero.websocket.vo.MsgVO;
+import org.hzero.websocket.vo.SessionVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.choerodon.core.exception.CommonException;
 
@@ -59,8 +59,12 @@ public class KeySocketSendHelper {
                 SocketSessionUtils.sendMsg(clientSession, sessionId, msgStr);
                 return;
             }
-            // 通知其他服务
-            redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, msgStr);
+            SessionVO session = SessionRedis.getSession(sessionId);
+            if (session == null) {
+                return;
+            }
+            // 通知目标服务
+            redisTemplate.convertAndSend(session.getBrokerId(), msgStr);
         } catch (JsonProcessingException e) {
             throw new CommonException(BaseConstants.ErrorCode.ERROR, e);
         }
@@ -82,8 +86,12 @@ public class KeySocketSendHelper {
                 SocketSessionUtils.sendMsg(clientSession, sessionId, data);
                 return;
             }
-            // 通知其他服务
-            redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, objectMapper.writeValueAsString(msg));
+            SessionVO session = SessionRedis.getSession(sessionId);
+            if (session == null) {
+                return;
+            }
+            // 通知目标服务
+            redisTemplate.convertAndSend(session.getBrokerId(), objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
             throw new CommonException(BaseConstants.ErrorCode.ERROR, e);
         }
@@ -102,9 +110,8 @@ public class KeySocketSendHelper {
             MsgVO msg = new MsgVO().setGroup(group).setKey(key).setMessage(message).setType(WebSocketConstant.SendType.S_GROUP).setBrokerId(brokerId);
             String msgStr = objectMapper.writeValueAsString(msg);
             // 优先本地消费
-            List<ClientVO> clientList = BrokerServerSessionRedis.getCache(brokerId, group);
-            List<String> sessionIdList = clientList.stream().map(ClientVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendClientMsg(sessionIdList, msgStr);
+            List<String> sessionIdList = GroupSessionRedis.getSessionIds(group);
+            SocketSessionUtils.sendGroupMsg(sessionIdList, msgStr);
             // 通知其他服务
             notice(group, msgStr);
         } catch (JsonProcessingException e) {
@@ -124,9 +131,8 @@ public class KeySocketSendHelper {
             String brokerId = BaseSessionRegistry.getBrokerId();
             MsgVO msg = new MsgVO().setGroup(group).setKey(key).setData(data).setType(WebSocketConstant.SendType.S_GROUP).setBrokerId(brokerId);
             // 优先本地消费
-            List<ClientVO> clientList = BrokerServerSessionRedis.getCache(brokerId, group);
-            List<String> sessionIdList = clientList.stream().map(ClientVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendClientMsg(sessionIdList, data);
+            List<String> sessionIdList = GroupSessionRedis.getSessionIds(group);
+            SocketSessionUtils.sendGroupMsg(sessionIdList, data);
             // 通知其他服务
             notice(group, objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
@@ -146,9 +152,10 @@ public class KeySocketSendHelper {
             MsgVO msg = new MsgVO().setKey(key).setMessage(message).setType(WebSocketConstant.SendType.S_ALL).setBrokerId(brokerId);
             String msgStr = objectMapper.writeValueAsString(msg);
             // 优先本地消费
-            List<ClientVO> clients = BrokerServerSessionRedis.getCache(brokerId);
-            List<String> sessionIdList = clients.stream().map(ClientVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendClientMsg(sessionIdList, msgStr);
+            List<WebSocketSession> groupSessionList = GroupSessionRegistry.getAllSession();
+            for (WebSocketSession item : groupSessionList) {
+                SocketSessionUtils.sendMsg(item, msg.getSessionId(), msgStr);
+            }
             // 通知远程
             redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, msgStr);
         } catch (JsonProcessingException e) {
@@ -167,9 +174,10 @@ public class KeySocketSendHelper {
             String brokerId = BaseSessionRegistry.getBrokerId();
             MsgVO msg = new MsgVO().setKey(key).setData(data).setType(WebSocketConstant.SendType.S_ALL).setBrokerId(brokerId);
             // 优先本地消费
-            List<ClientVO> clients = BrokerServerSessionRedis.getCache(brokerId);
-            List<String> sessionIdList = clients.stream().map(ClientVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendClientMsg(sessionIdList, data);
+            List<WebSocketSession> groupSessionList = GroupSessionRegistry.getAllSession();
+            for (WebSocketSession item : groupSessionList) {
+                SocketSessionUtils.sendMsg(item, msg.getSessionId(), data);
+            }
             // 通知远程
             redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
@@ -187,8 +195,7 @@ public class KeySocketSendHelper {
             String brokerId = BaseSessionRegistry.getBrokerId();
             MsgVO msg = new MsgVO().setType(WebSocketConstant.SendType.CLOSE).setGroup(group).setBrokerId(brokerId);
             // 优先本地消费
-            List<ClientVO> list = BrokerServerSessionRedis.getCache(brokerId, group);
-            List<String> sessionIdList = list.stream().map(ClientVO::getSessionId).collect(Collectors.toList());
+            List<String> sessionIdList = GroupSessionRedis.getSessionIds(group);
             SocketSessionUtils.closeSession(sessionIdList);
             // 通知远程
             redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, objectMapper.writeValueAsString(msg));
@@ -204,12 +211,16 @@ public class KeySocketSendHelper {
         // 获取所有实例
         String brokerId = BaseSessionRegistry.getBrokerId();
         List<String> brokerList = BrokerListenRedis.getCache();
+        List<String> groupSession = GroupSessionRedis.getSessionIds(group);
         brokerList.forEach(item -> {
             if (Objects.equals(item, brokerId)) {
+                // 本节点不用处理
                 return;
             }
-            List<ClientVO> list = BrokerServerSessionRedis.getCache(item, group);
-            if (CollectionUtils.isNotEmpty(list)) {
+            List<String> brokerSession = BrokerSessionRedis.getSessionIds(item);
+            brokerSession.retainAll(groupSession);
+            if (CollectionUtils.isNotEmpty(brokerSession)) {
+                // 该节点有指定用户session信息，发送通知
                 redisTemplate.convertAndSend(item, msgStr);
             }
         });

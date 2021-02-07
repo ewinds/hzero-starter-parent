@@ -26,7 +26,7 @@ public class WebSocketConfig {
      */
     private String oauthUrl = "http://hzero-oauth/oauth/api/user";
     /**
-     * redisDb，要与当前服务一致
+     * redisDb
      */
     private Integer redisDb = 1;
     /**

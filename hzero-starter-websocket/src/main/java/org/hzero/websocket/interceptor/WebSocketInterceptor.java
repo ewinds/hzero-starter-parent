@@ -1,9 +1,14 @@
 package org.hzero.websocket.interceptor;
 
+import static org.hzero.core.variable.RequestVariableHolder.HEADER_AUTH;
+import static org.hzero.core.variable.RequestVariableHolder.HEADER_BEARER;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hzero.websocket.config.WebSocketConfig;
 import org.hzero.websocket.constant.WebSocketConstant;
@@ -21,6 +26,8 @@ import io.choerodon.core.convertor.ApplicationContextHelper;
  * @author shuangfei.zhu@hand-china.com 2019/04/19 10:58
  */
 public class WebSocketInterceptor implements HandshakeInterceptor {
+
+    private static final String TOKEN_PREFIX = HEADER_BEARER + " ";
 
     private final Map<String, SocketInterceptor> interceptors = new HashMap<>();
 
@@ -46,6 +53,15 @@ public class WebSocketInterceptor implements HandshakeInterceptor {
             // 将所有路径参数添加到attributes
             for (Map.Entry<String, String[]> entry : serverHttpRequest.getServletRequest().getParameterMap().entrySet()) {
                 attributes.put(entry.getKey(), entry.getValue()[0]);
+            }
+            // 从header取token
+            List<String> list = serverHttpRequest.getHeaders().get(HEADER_AUTH);
+            if (CollectionUtils.isNotEmpty(list)) {
+                String accessToken = list.get(0);
+                if (StringUtils.startsWithIgnoreCase(accessToken, TOKEN_PREFIX)) {
+                    accessToken = accessToken.substring(TOKEN_PREFIX.length());
+                }
+                attributes.put(WebSocketConstant.Attributes.TOKEN, accessToken);
             }
             if (!attributes.containsKey(WebSocketConstant.Attributes.SECRET_KEY) && !attributes.containsKey(WebSocketConstant.Attributes.TOKEN)) {
                 // 未携带密钥和token，连接断开

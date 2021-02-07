@@ -4,6 +4,7 @@ import io.choerodon.mybatis.code.DbType;
 import io.choerodon.mybatis.constant.CommonMapperConfigConstant;
 import io.choerodon.mybatis.constant.DatabaseProductName;
 import io.choerodon.mybatis.domain.Config;
+import io.choerodon.mybatis.handler.Boolean2IntTypeHandler;
 import io.choerodon.mybatis.helper.MapperHelper;
 import io.choerodon.mybatis.helper.feign.failback.LanguageRemoteServiceImpl;
 import io.choerodon.mybatis.language.MultiLanguageInterceptor;
@@ -170,11 +171,13 @@ public class MybatisMapperAutoConfiguration implements EnvironmentAware {
             DataSecurityInterceptor.setDataSecurityKeyService(dataSecurityKeyService);
             sqlSessionFactory.getConfiguration().addInterceptor(new DataSecurityInterceptor(dataSecurityDefaultOpen, dataSecurityIsolationLevel));
             sqlSessionFactory.getConfiguration().addInterceptor(new CrossSchemaInterceptor());
+            sqlSessionFactory.getConfiguration().getTypeHandlerRegistry().register(Boolean2IntTypeHandler.class);
 
             //配置JdbcTypeForNull, oracle数据库必须配置，解决插入null的时候报错问题
             sqlSessionFactory.getConfiguration().setJdbcTypeForNull(JdbcType.NULL);
         } catch (SQLException e) {
             logger.info("[sql exception]" + e);
+            throw e;
         }
         return dialect;
     }

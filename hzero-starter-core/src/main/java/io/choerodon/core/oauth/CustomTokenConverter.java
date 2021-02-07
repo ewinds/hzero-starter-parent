@@ -3,6 +3,7 @@ package io.choerodon.core.oauth;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +44,7 @@ public class CustomTokenConverter extends DefaultAccessTokenConverter {
     private static final String TENANT_IDS = "tenantIds";
     private static final String IMAGE_URL = "imageUrl";
     private static final String API_ENCRYPT_FLAG = "apiEncryptFlag";
+    private static final String API_REPLAY_FLAG = "apiReplayFlag";
     private static final String ROLE_LABELS = "roleLabels";
 
     private UserDetailsService userDetailsService;
@@ -99,6 +101,7 @@ public class CustomTokenConverter extends DefaultAccessTokenConverter {
             map.put(IMAGE_URL, user.getImageUrl());
             map.put(CLIENT_ID, user.getClientId());
             map.put(API_ENCRYPT_FLAG, user.getApiEncryptFlag());
+            map.put(API_REPLAY_FLAG, user.getApiReplayFlag());
             map.put(ROLE_LABELS, user.getRoleLabels());
             // End
             if (user.getAdditionInfo() != null) {
@@ -141,7 +144,7 @@ public class CustomTokenConverter extends DefaultAccessTokenConverter {
         OAuth2Authentication authentication = super.extractAuthentication(map);
         if (map.containsKey(USER_ID)) {
             CustomUserDetails user = new CustomUserDetails(authentication.getName(), "unknown password", (String) map.get("userType"), authentication.getAuthorities());
-            user.setOrganizationId(Long.parseLong(String.valueOf(map.get(ORGANIZATION_ID))));
+            user.setOrganizationId(Long.parseLong(String.valueOf(Optional.ofNullable(map.get(ORGANIZATION_ID)).orElseThrow(() -> new IllegalArgumentException("Organization Id is missing from user information.")))));
             if (((Map<String, Object>) map).get(USER_ID) != null) {
                 user.setUserId(Long.parseLong(String.valueOf(map.get(USER_ID))));
                 user.setLanguage((String) map.get("language"));
@@ -241,8 +244,11 @@ public class CustomTokenConverter extends DefaultAccessTokenConverter {
             } catch (Exception e) {
                 LOGGER.warn("parser addition info meaning error", e);
             }
-            if (map.containsKey("apiEncryptFlag")) {
-                user.setApiEncryptFlag((Integer) map.get("apiEncryptFlag"));
+            if (map.containsKey(API_ENCRYPT_FLAG)) {
+                user.setApiEncryptFlag((Integer) map.get(API_ENCRYPT_FLAG));
+            }
+            if (map.containsKey(API_REPLAY_FLAG)) {
+                user.setApiReplayFlag((Integer) map.get(API_REPLAY_FLAG));
             }
             authentication.setDetails(user);
         } else {
@@ -280,8 +286,11 @@ public class CustomTokenConverter extends DefaultAccessTokenConverter {
             } catch (Exception e) {
                 LOGGER.warn("parser addition info error", e);
             }
-            if (map.containsKey("apiEncryptFlag")) {
-                client.setApiEncryptFlag((Integer) map.get("apiEncryptFlag"));
+            if (map.containsKey(API_ENCRYPT_FLAG)) {
+                client.setApiEncryptFlag((Integer) map.get(API_ENCRYPT_FLAG));
+            }
+            if (map.containsKey(API_REPLAY_FLAG)) {
+                client.setApiReplayFlag((Integer) map.get(API_REPLAY_FLAG));
             }
             authentication.setDetails(client);
         }

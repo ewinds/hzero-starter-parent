@@ -20,13 +20,18 @@ import org.springframework.web.socket.WebSocketSession;
  */
 public class SocketSessionUtils {
 
-    private SocketSessionUtils(){}
+    private SocketSessionUtils() {
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(SocketSessionUtils.class);
 
     public static void sendUserMsg(List<String> sessionIds, String msgVO) {
         for (String sessionId : sessionIds) {
             WebSocketSession session = UserSessionRegistry.getSession(sessionId);
+            if (session == null) {
+                // websocketSession不在当前节点
+                continue;
+            }
             sendMsg(session, sessionId, msgVO);
         }
     }
@@ -34,26 +39,42 @@ public class SocketSessionUtils {
     public static void sendUserMsg(List<String> sessionIds, byte[] data) {
         for (String sessionId : sessionIds) {
             WebSocketSession session = UserSessionRegistry.getSession(sessionId);
+            if (session == null) {
+                // websocketSession不在当前节点
+                continue;
+            }
             sendMsg(session, sessionId, data);
         }
     }
 
-    public static void sendClientMsg(List<String> sessionIds, String msgVO) {
+    public static void sendGroupMsg(List<String> sessionIds, String msgVO) {
         for (String sessionId : sessionIds) {
             WebSocketSession session = GroupSessionRegistry.getSession(sessionId);
+            if (session == null) {
+                // websocketSession不在当前节点
+                continue;
+            }
             sendMsg(session, sessionId, msgVO);
         }
     }
 
-    public static void sendClientMsg(List<String> sessionIds, byte[] data) {
+    public static void sendGroupMsg(List<String> sessionIds, byte[] data) {
         for (String sessionId : sessionIds) {
             WebSocketSession session = GroupSessionRegistry.getSession(sessionId);
+            if (session == null) {
+                // websocketSession不在当前节点
+                continue;
+            }
             sendMsg(session, sessionId, data);
         }
     }
 
     public static void sendMsg(WebSocketSession session, String sessionId, String msgVO) {
-        if (session == null || !session.isOpen()) {
+        if (session == null) {
+            // websocketSession不在当前节点
+            return;
+        }
+        if (!session.isOpen()) {
             // 清除失效连接
             BaseSessionRegistry.clearSession(sessionId);
             return;
@@ -66,7 +87,11 @@ public class SocketSessionUtils {
     }
 
     public static void sendMsg(WebSocketSession session, String sessionId, byte[] data) {
-        if (session == null || !session.isOpen()) {
+        if (session == null) {
+            // websocketSession不在当前节点
+            return;
+        }
+        if (!session.isOpen()) {
             // 清除失效连接
             BaseSessionRegistry.clearSession(sessionId);
             return;
@@ -83,16 +108,6 @@ public class SocketSessionUtils {
             return;
         }
         // 清理内存及缓存
-        sessionIds.forEach(item -> {
-            BaseSessionRegistry.clearSession(item);
-            WebSocketSession session = GroupSessionRegistry.getSession(item);
-            if (session != null && session.isOpen()) {
-                try {
-                    session.close();
-                } catch (IOException e) {
-                    logger.debug("close session failed! url : {}", session.getUri());
-                }
-            }
-        });
+        sessionIds.forEach(BaseSessionRegistry::clearSession);
     }
 }

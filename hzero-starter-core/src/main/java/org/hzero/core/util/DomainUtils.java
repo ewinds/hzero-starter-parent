@@ -1,6 +1,8 @@
 package org.hzero.core.util;
 
 import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.Map;
@@ -8,6 +10,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 域名工具
@@ -15,6 +19,8 @@ import org.apache.commons.lang3.StringUtils;
  * @author bojiangzhou 2020/04/27
  */
 public class DomainUtils {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DomainUtils.class);
 
     public static final String HTTP = "http://";
 
@@ -177,6 +183,49 @@ public class DomainUtils {
         );
         // get the path and its rest.
         return (from < 0) ? (at >= 0 ? "/" : uri) : uri.substring(from);
+    }
+
+    /**
+     * 获取地址的主机地址
+     */
+    public static String getHost(String uri) {
+        if (StringUtils.isBlank(uri)) {
+            return null;
+        }
+        try {
+            URL url = new java.net.URL(uri);
+            if (url.getPort() > 0) {
+                uri = url.getHost() + ":" + url.getPort();
+            } else {
+                uri = url.getHost();
+            }
+        } catch (MalformedURLException e) {
+            LOGGER.warn("Parse uri error, uri is [{}]", uri);
+            return null;
+        }
+        return uri;
+    }
+
+    /**
+     * 获取地址的域名信息
+     */
+    public static String getDomain(String uri) {
+        if (StringUtils.isBlank(uri)) {
+            return null;
+        }
+        try {
+            URL url = new java.net.URL(uri);
+            if (url.getPort() > 0) {
+                uri = url.getHost() + ":" + url.getPort();
+            } else {
+                uri = url.getHost();
+            }
+            uri = url.getProtocol() + "://" + url.getHost();
+        } catch (MalformedURLException e) {
+            LOGGER.warn("Parse uri error, uri is [{}]", uri);
+            return null;
+        }
+        return uri;
     }
 
 }

@@ -1044,6 +1044,35 @@ public final class HZeroService {
         }
     }
 
+    /**
+     * 新版分发服务
+     * hzero-datasync
+     */
+    @Component
+    public static class DataSync {
+        public static final String NAME = "${hzero.service.hdsc.name:hzero-datasync}";
+        public static final String CODE = "hdsc";
+        public static final String PATH = "/hdsc/**";
+        public static Integer PORT = 8125;
+        public static Integer REDIS_DB = 1;
+        public static String BUCKET_NAME = "hdsc";
+
+        @Value("${hzero.service.hdsc.port:8125}")
+        public void setPort(Integer port) {
+            PORT = port;
+        }
+
+        @Value("${hzero.service.hdsc.redis-db:1}")
+        public void setRedisDb(Integer redisDb) {
+            REDIS_DB = redisDb;
+        }
+
+        @Value("${hzero.service.bucket-name:hdsc}")
+        public void setBucketName(String bucketName) {
+            BUCKET_NAME = bucketName;
+        }
+    }
+
     @Component
     public static class Frontal {
         public static final String NAME = "${hzero.service.frontal.name:hzero-frontal}";
@@ -1152,6 +1181,34 @@ public final class HZeroService {
         }
 
         @Value("${hzero.service.bucket-name:hrcw}")
+        public void setBucketName(String bucketName) {
+            BUCKET_NAME = bucketName;
+        }
+    }
+
+    @Component
+    public static class PayGateway {
+        public static final String NAME = "${hzero.service.pay-gateway.name:hzero-pay-gateway}";
+        public static final String CODE = "hpgw";
+        public static final String PATH = "/hpgw/**";
+        public static Integer PORT = 8245;
+        public static Integer REDIS_DB = 1;
+        public static String BUCKET_NAME = "hpgw";
+
+        public PayGateway() {
+        }
+
+        @Value("${hzero.service.pay-gateway.port:8245}")
+        public void setPort(Integer port) {
+            PORT = port;
+        }
+
+        @Value("${hzero.service.pay-gateway.redis-db:1}")
+        public void setRedisDb(Integer redisDb) {
+            REDIS_DB = redisDb;
+        }
+
+        @Value("${hzero.service.bucket-name:hpgw}")
         public void setBucketName(String bucketName) {
             BUCKET_NAME = bucketName;
         }

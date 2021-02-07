@@ -3,9 +3,6 @@ package org.hzero.websocket.handler;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -34,14 +31,11 @@ import org.hzero.core.base.TokenConstants;
 import org.hzero.websocket.config.WebSocketConfig;
 import org.hzero.websocket.constant.WebSocketConstant;
 import org.hzero.websocket.helper.SocketMessageHandler;
-import org.hzero.websocket.redis.BrokerServerSessionRedis;
-import org.hzero.websocket.redis.BrokerUserSessionRedis;
-import org.hzero.websocket.redis.SessionUserRedis;
+import org.hzero.websocket.redis.*;
 import org.hzero.websocket.registry.GroupSessionRegistry;
 import org.hzero.websocket.registry.UserSessionRegistry;
-import org.hzero.websocket.vo.ClientVO;
 import org.hzero.websocket.vo.MsgVO;
-import org.hzero.websocket.vo.UserVO;
+import org.hzero.websocket.vo.SessionVO;
 
 /**
  * 默认处理器
@@ -79,7 +73,7 @@ public class DefaultSocketHandler implements SocketHandler {
                 // sock js 连接
                 sessionId = ((WebSocketSession) FieldUtils.readField(session, "webSocketSession", true)).getId();
             } else {
-                session.close();
+                throw new CommonException("connection error");
             }
             Map<String, Object> attributeMap = session.getAttributes();
             if (attributeMap.containsKey(WebSocketConstant.Attributes.TOKEN)) {
@@ -89,7 +83,7 @@ public class DefaultSocketHandler implements SocketHandler {
                 // 密钥连接
                 secretConnection(session, sessionId);
             } else {
-                session.close();
+                throw new CommonException("connection error");
             }
 
         } catch (Exception e) {
@@ -102,41 +96,36 @@ public class DefaultSocketHandler implements SocketHandler {
         }
     }
 
-    private final Lock scLock = new ReentrantLock();
 
     /**
      * 密钥链接
      *
-     * @param session   WebSocketSession
-     * @param sessionId WebSocketSessionId
+     * @param webSocketSession WebSocketSession
+     * @param sessionId        WebSocketSessionId
      */
-    private void secretConnection(WebSocketSession session, String sessionId) {
-        String group = String.valueOf(session.getAttributes().get(WebSocketConstant.Attributes.GROUP));
+    private void secretConnection(WebSocketSession webSocketSession, String sessionId) {
+        String group = String.valueOf(webSocketSession.getAttributes().get(WebSocketConstant.Attributes.GROUP));
         // 内存中存储webSocketSession
-        GroupSessionRegistry.addSession(session, sessionId, group);
-        // 记录Broker-serverSession
+        GroupSessionRegistry.addSession(webSocketSession, sessionId);
         String brokerId = GroupSessionRegistry.getBrokerId();
-        try {
-            scLock.tryLock(10, TimeUnit.SECONDS);
-            BrokerServerSessionRedis.refreshCache(brokerId, group, new ClientVO(sessionId, group, brokerId));
-        } catch (InterruptedException e) {
-            logger.warn("InterruptedException occurred.", e);
-        } finally {
-            scLock.unlock();
-        }
+        SessionVO session = new SessionVO(sessionId, group, brokerId);
+        // 记录session
+        SessionRedis.addCache(session);
+        // 记录分组session
+        GroupSessionRedis.addCache(group, sessionId);
+        // 记录节点session
+        BrokerSessionRedis.addCache(brokerId, sessionId);
     }
-
-    private final Lock ucLock = new ReentrantLock();
 
     /**
      * 用户连接
      *
-     * @param session   WebSocketSession
-     * @param sessionId WebSocketSessionId
+     * @param webSocketSession WebSocketSession
+     * @param sessionId        WebSocketSessionId
      */
-    private void userConnection(WebSocketSession session, String sessionId) {
+    private void userConnection(WebSocketSession webSocketSession, String sessionId) {
         // 获取用户信息
-        String token = String.valueOf(session.getAttributes().get(WebSocketConstant.Attributes.TOKEN));
+        String token = String.valueOf(webSocketSession.getAttributes().get(WebSocketConstant.Attributes.TOKEN));
         CustomUserDetails customUserDetails = getAuthentication(token, config.getOauthUrl());
         if (customUserDetails == null) {
             throw new CommonException("User authentication failed");
@@ -144,23 +133,19 @@ public class DefaultSocketHandler implements SocketHandler {
         Long tenantId = customUserDetails.getTenantId();
         Long userId = customUserDetails.getUserId();
         Long roleId = customUserDetails.getRoleId();
-        String brokerId = UserSessionRegistry.getBrokerId();
-        UserVO user = new UserVO(sessionId, tenantId, roleId, token, brokerId);
         logger.debug("connection success. userId : {}", userId);
-
-        try {
-            ucLock.tryLock(10, TimeUnit.SECONDS);
-            // 内存中存储webSocketSession
-            UserSessionRegistry.addSession(session, sessionId, userId);
-            // 记录Broker-userSession
-            BrokerUserSessionRedis.refreshCache(brokerId, userId, user);
-            // 记录Session-User
-            SessionUserRedis.refreshCache(user);
-        } catch (InterruptedException e) {
-            logger.warn("InterruptedException occurred.", e);
-        } finally {
-            ucLock.unlock();
-        }
+        // 内存中存储webSocketSession
+        UserSessionRegistry.addSession(webSocketSession, sessionId);
+        String brokerId = UserSessionRegistry.getBrokerId();
+        SessionVO session = new SessionVO(sessionId, userId, tenantId, roleId, token, brokerId);
+        // 记录session
+        SessionRedis.addCache(session);
+        // 记录在线用户
+        OnlineUserRedis.refreshCache(session);
+        // 记录用户session
+        UserSessionRedis.addCache(userId, sessionId);
+        // 记录节点session
+        BrokerSessionRedis.addCache(brokerId, sessionId);
     }
 
     /**

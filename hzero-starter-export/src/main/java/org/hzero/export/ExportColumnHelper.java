@@ -9,12 +9,14 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.poi.ss.formula.functions.T;
 import org.hzero.common.HZeroService;
 import org.hzero.core.base.BaseConstants;
 import org.hzero.core.helper.LanguageHelper;
 import org.hzero.core.jackson.annotation.IgnoreTimeZone;
 import org.hzero.core.redis.RedisHelper;
+import org.hzero.core.util.FileUtils;
 import org.hzero.export.annotation.ExcelColumn;
 import org.hzero.export.annotation.ExcelExport;
 import org.hzero.export.annotation.ExcelSheet;
@@ -171,7 +173,8 @@ public class ExportColumnHelper {
         root.setExcelSheet(excelSheet);
 
         // field
-        Field[] fields = exportClass.getDeclaredFields();
+        //
+        Field[] fields = FieldUtils.getAllFields(exportClass);
         List<ExportColumn> children = new ArrayList<>(fields.length);
         for (Field field : fields) {
             if (field.isAnnotationPresent(ExcelColumn.class)) {
@@ -246,9 +249,9 @@ public class ExportColumnHelper {
             if (userDetails != null) {
                 tenantId = userDetails.getTenantId();
             }
-            title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelSheet.promptKey() + "." + LanguageHelper.language() + "." + tenantId, excelSheet.promptCode());
+            title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelSheet.promptKey() + "." + LanguageHelper.language() + "." + tenantId, excelSheet.promptKey() + "." + excelSheet.promptCode());
             if (StringUtils.isBlank(title) && !BaseConstants.DEFAULT_TENANT_ID.equals(tenantId)) {
-                title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelSheet.promptKey() + "." + LanguageHelper.language() + "." + BaseConstants.DEFAULT_TENANT_ID, excelSheet.promptCode());
+                title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelSheet.promptKey() + "." + LanguageHelper.language() + "." + BaseConstants.DEFAULT_TENANT_ID, excelSheet.promptKey() + "." + excelSheet.promptCode());
             }
         }
         if (StringUtils.isBlank(title)) {
@@ -276,9 +279,9 @@ public class ExportColumnHelper {
             if (userDetails != null) {
                 tenantId = userDetails.getTenantId();
             }
-            title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelColumn.promptKey() + "." + LanguageHelper.language() + "." + tenantId, excelColumn.promptCode());
+            title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + promptKey + "." + LanguageHelper.language() + "." + tenantId, promptKey + "." + excelColumn.promptCode());
             if (StringUtils.isBlank(title) && !BaseConstants.DEFAULT_TENANT_ID.equals(tenantId)) {
-                title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + excelColumn.promptKey() + "." + LanguageHelper.language() + "." + BaseConstants.DEFAULT_TENANT_ID, excelColumn.promptCode());
+                title = redisHelper.hshGet(MULTI_LANGUAGE_PREFIX + promptKey + "." + LanguageHelper.language() + "." + BaseConstants.DEFAULT_TENANT_ID, promptKey + "." + excelColumn.promptCode());
             }
         }
         if (StringUtils.isBlank(title)) {

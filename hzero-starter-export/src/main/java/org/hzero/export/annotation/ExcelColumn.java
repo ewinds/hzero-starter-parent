@@ -140,4 +140,11 @@ public @interface ExcelColumn {
      * 值集编码
      */
     String lovCode() default "";
+
+    /**
+     * 是否进行安全检查
+     *
+     * @return boolean
+     */
+    boolean safeCheck() default true;
 }

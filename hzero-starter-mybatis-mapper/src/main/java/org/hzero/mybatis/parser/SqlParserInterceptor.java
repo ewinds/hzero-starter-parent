@@ -66,16 +66,22 @@ public class SqlParserInterceptor implements Interceptor {
         currentInvocation.set(invocation);
         String sqlId = SqlUtils.getSqlId(invocation);
         Statement statement;
+        SqlInterceptor interceptorCursor = null;
         try {
             statement = CCJSqlParserUtil.parse(boundSql.getSql());
             CustomUserDetails userDetails = DetailsHelper.getUserDetails();
             for (SqlInterceptor sqlInterceptor : sqlInterceptors) {
+                interceptorCursor = sqlInterceptor;
                 sqlInterceptor.before();
                 statement = sqlInterceptor.handleStatement(statement, serviceName, sqlId, getArgs(invocation, statement), userDetails != null ? userDetails : DetailsHelper.getAnonymousDetails());
                 sqlInterceptor.after();
+                interceptorCursor = null;
             }
         } catch (Exception e) {
-            logger.error("Error parser sql.", e);
+            logger.error("An error occurred while parsing SQL or an error occurred while intercepting SQL processing", e);
+            if (interceptorCursor != null && interceptorCursor.interrupted()) {
+                throw e;
+            }
             return invocation.proceed();
         } finally {
             currentInvocation.remove();

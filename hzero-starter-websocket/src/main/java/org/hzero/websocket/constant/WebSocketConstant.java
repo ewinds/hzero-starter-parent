@@ -14,7 +14,7 @@ public class WebSocketConstant {
 
     public static final String CHANNEL = "hzero-webSocket";
 
-    public static final String ALIVE = "$";
+    public static final String ALIVE = "alive";
 
     public static final String DEFAULT_PROCESSOR = "hzero-websocket-default-processor";
 

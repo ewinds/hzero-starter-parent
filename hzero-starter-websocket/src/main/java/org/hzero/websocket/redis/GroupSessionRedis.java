@@ -11,31 +11,49 @@ import org.hzero.core.redis.RedisHelper;
 import org.hzero.websocket.constant.WebSocketConstant;
 
 /**
- * 客户端心跳缓存
+ * 存储分组与分组所属的sessionId
  *
- * @author shuangfei.zhu@hand-china.com 2019/05/30 15:17
+ * @author shuangfei.zhu@hand-china.com 2020/09/02 9:46
  */
-public class BrokerListenRedis extends WebSocketRedis {
+public class GroupSessionRedis extends WebSocketRedis {
 
     /**
      * 生成redis存储key
      *
+     * @param group 分组
      * @return key
      */
-    private static String getCacheKey() {
-        return WebSocketConstant.REDIS_KEY + ":socket-nodes:all";
+    private static String getCacheKey(String group) {
+        return WebSocketConstant.REDIS_KEY + ":group-sessions:" + group;
     }
 
     /**
-     * 刷新缓存
+     * 添加缓存
      *
-     * @param brokerId 客户端唯一标识
+     * @param group     分组
+     * @param sessionId sessionId
      */
-    public static void refreshCache(String brokerId) {
+    public static void addCache(String group, String sessionId) {
         RedisHelper redisHelper = getRedisHelper();
         redisHelper.setCurrentDatabase(getConfig().getRedisDb());
         try {
-            redisHelper.hshPut(getCacheKey(), brokerId, StringUtils.EMPTY);
+            redisHelper.hshPut(getCacheKey(group), sessionId, StringUtils.EMPTY);
+        } finally {
+            redisHelper.clearCurrentDatabase();
+        }
+    }
+
+    /**
+     * 刪除缓存
+     *
+     * @param group     分组
+     * @param sessionId sessionId
+     */
+    public static void clearCache(String group, String sessionId) {
+        RedisHelper redisHelper = getRedisHelper();
+        redisHelper.setCurrentDatabase(getConfig().getRedisDb());
+        try {
+            redisHelper.hshDelete(getCacheKey(group), sessionId);
         } finally {
             redisHelper.clearCurrentDatabase();
         }
@@ -43,31 +61,18 @@ public class BrokerListenRedis extends WebSocketRedis {
 
     /**
      * 查询缓存
+     *
+     * @param group 分组
      */
-    public static List<String> getCache() {
+    public static List<String> getSessionIds(String group) {
         RedisHelper redisHelper = getRedisHelper();
         redisHelper.setCurrentDatabase(getConfig().getRedisDb());
         Set<String> set;
         try {
-            set = ObjectUtils.defaultIfNull(redisHelper.hshKeys(getCacheKey()), new HashSet<>());
+            set = ObjectUtils.defaultIfNull(redisHelper.hshKeys(getCacheKey(group)), new HashSet<>());
         } finally {
             redisHelper.clearCurrentDatabase();
         }
         return new ArrayList<>(set);
-    }
-
-    /**
-     * 清空缓存
-     *
-     * @param brokerId 客户端唯一标识
-     */
-    public static void clearRedisCache(String brokerId) {
-        RedisHelper redisHelper = getRedisHelper();
-        redisHelper.setCurrentDatabase(getConfig().getRedisDb());
-        try {
-            redisHelper.hshDelete(getCacheKey(), brokerId);
-        } finally {
-            redisHelper.clearCurrentDatabase();
-        }
     }
 }

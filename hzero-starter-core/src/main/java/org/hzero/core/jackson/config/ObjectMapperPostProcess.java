@@ -10,8 +10,10 @@ import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import org.hzero.core.base.BaseConstants;
 import org.hzero.core.jackson.deserializer.DateDeserializer;
+import org.hzero.core.jackson.deserializer.LocalDateTimeDeserializer;
 import org.hzero.core.jackson.deserializer.TrimStringDeserializer;
 import org.hzero.core.jackson.serializer.DateSerializer;
+import org.hzero.core.jackson.serializer.LocalDateTimeSerializer;
 import org.hzero.core.jackson.serializer.SensitiveStringSerializer;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -19,6 +21,7 @@ import org.springframework.boot.env.SpringApplicationJsonEnvironmentPostProcesso
 import org.springframework.core.PriorityOrdered;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
@@ -34,7 +37,9 @@ public class ObjectMapperPostProcess implements BeanPostProcessor, PriorityOrder
             javaTimeModule.addSerializer(Date.class, new DateSerializer());
             javaTimeModule.addDeserializer(Date.class, new DateDeserializer());
             javaTimeModule.addSerializer(LocalDate.class, new LocalDateSerializer(DateTimeFormatter.ofPattern(BaseConstants.Pattern.DATE)));
+            javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer());
             javaTimeModule.addDeserializer(LocalDate.class, new LocalDateDeserializer(DateTimeFormatter.ofPattern(BaseConstants.Pattern.DATE)));
+            javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer());
 
             SimpleModule simpleModule = new SimpleModule();
             simpleModule.addSerializer(String.class, new SensitiveStringSerializer());
@@ -44,6 +49,7 @@ public class ObjectMapperPostProcess implements BeanPostProcessor, PriorityOrder
 
             mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
             mapper.disable(MapperFeature.IGNORE_DUPLICATE_MODULE_REGISTRATIONS);
 
             mapper.registerModules(simpleModule, javaTimeModule);

@@ -310,13 +310,17 @@ public abstract class ExcelFillerV2 implements IExcelFiller {
             cell.setCellValue(Date.from(((LocalDateTime) value).atZone(zoneId).toInstant()));
         } else if (value instanceof String) {
             cell.setCellType(CellType.STRING);
-            // 防止 csv 注入
-            value = SecurityUtils.preventCsvInjection((String) value);
+            // 防止 注入攻击
+            if (excelColumn == null || excelColumn.safeCheck()) {
+                value = SecurityUtils.preventCsvInjection((String) value);
+            }
             cell.setCellValue(String.valueOf(value));
         } else {
             this.logger.warn("can not process type [{}] in excel export", type);
             cell.setCellType(CellType.STRING);
-            value = SecurityUtils.preventCsvInjection(String.valueOf(value));
+            if (excelColumn == null || excelColumn.safeCheck()) {
+                value = SecurityUtils.preventCsvInjection(String.valueOf(value));
+            }
             cell.setCellValue(String.valueOf(value));
         }
 

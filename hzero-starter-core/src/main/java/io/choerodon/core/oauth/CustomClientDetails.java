@@ -50,6 +50,10 @@ public class CustomClientDetails extends BaseClientDetails {
      * 接口加密标识
      */
     private Integer apiEncryptFlag;
+    /**
+     * api防重放标识
+     */
+    private Integer apiReplayFlag;
 
     public Long getId() {
         return id;
@@ -120,6 +124,15 @@ public class CustomClientDetails extends BaseClientDetails {
         return this;
     }
 
+    public Integer getApiReplayFlag() {
+        return apiReplayFlag;
+    }
+
+    public CustomClientDetails setApiReplayFlag(Integer apiReplayFlag) {
+        this.apiReplayFlag = apiReplayFlag;
+        return this;
+    }
+
     public String toJSONString() {
         return ToStringBuilder.reflectionToString(this, ToStringStyle.JSON_STYLE);
     }
@@ -137,12 +150,13 @@ public class CustomClientDetails extends BaseClientDetails {
                 Objects.equals(roleIds, that.roleIds) &&
                 Objects.equals(tenantIds, that.tenantIds) &&
                 Objects.equals(timeZone, that.timeZone)&&
-                Objects.equals(apiEncryptFlag, that.apiEncryptFlag);
+                Objects.equals(apiEncryptFlag, that.apiEncryptFlag) &&
+                Objects.equals(apiReplayFlag, that.apiReplayFlag);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), id, organizationId, currentRoleId, currentTenantId, roleIds, tenantIds, timeZone, apiEncryptFlag);
+        return Objects.hash(super.hashCode(), id, organizationId, currentRoleId, currentTenantId, roleIds, tenantIds, timeZone, apiEncryptFlag, apiReplayFlag);
     }
 
     @Override
@@ -156,6 +170,7 @@ public class CustomClientDetails extends BaseClientDetails {
                 ", tenantIds=" + tenantIds +
                 ", timeZone='" + timeZone + '\'' +
                 ", apiEncryptFlag='" + apiEncryptFlag +
+                ", apiReplayFlag='" + apiReplayFlag +
                 '}';
     }
 }

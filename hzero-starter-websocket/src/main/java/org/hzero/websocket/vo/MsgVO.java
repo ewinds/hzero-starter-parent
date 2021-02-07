@@ -39,7 +39,7 @@ public class MsgVO {
      */
     private String data;
     /**
-     * 消息来源服务
+     * 消息来源节点id
      */
     private String brokerId;
 

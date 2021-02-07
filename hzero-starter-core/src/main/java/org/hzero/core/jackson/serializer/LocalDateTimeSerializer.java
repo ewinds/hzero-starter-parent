@@ -13,9 +13,9 @@ import org.hzero.core.jackson.annotation.IgnoreTimeZone;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * <p>
@@ -26,24 +26,24 @@ import java.util.TimeZone;
  * @see IgnoreTimeZone
  * </p>
  */
-public class DateSerializer extends JsonSerializer<Date> implements ContextualSerializer {
+public class LocalDateTimeSerializer extends JsonSerializer<LocalDateTime> implements ContextualSerializer {
     private boolean ignoreTimeZone = false;
     private JsonFormat format;
 
     @Override
-    public void serialize(Date date, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-        SimpleDateFormat dateFormatGmt = new SimpleDateFormat(getFormat());
+    public void serialize(LocalDateTime date, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(getFormat());
         if (!ignoreTimeZone) {
             if (format != null && !JsonFormat.DEFAULT_TIMEZONE.equals(format.timezone())) {
-                dateFormatGmt.setTimeZone(TimeZone.getTimeZone(format.timezone()));
+                dateTimeFormatter.withZone(ZoneId.of(format.timezone()));
             } else {
                 CustomUserDetails details = DetailsHelper.getUserDetails();
                 if (details != null && details.getTimeZone() != null) {
-                    dateFormatGmt.setTimeZone(TimeZone.getTimeZone(details.getTimeZone()));
+                    dateTimeFormatter.withZone(ZoneId.of(details.getTimeZone()));
                 }
             }
         }
-        jsonGenerator.writeString(dateFormatGmt.format(date));
+        jsonGenerator.writeString(dateTimeFormatter.format(date));
     }
 
     private String getFormat() {
@@ -54,19 +54,19 @@ public class DateSerializer extends JsonSerializer<Date> implements ContextualSe
     }
 
 
-    private DateSerializer setIgnoreTimeZone(boolean ignoreTimeZone) {
+    private LocalDateTimeSerializer setIgnoreTimeZone(boolean ignoreTimeZone) {
         this.ignoreTimeZone = ignoreTimeZone;
         return this;
     }
 
-    public DateSerializer setFormat(JsonFormat format) {
+    public LocalDateTimeSerializer setFormat(JsonFormat format) {
         this.format = format;
         return this;
     }
 
     @Override
     public JsonSerializer<?> createContextual(SerializerProvider prov, BeanProperty property) {
-        return new DateSerializer()
+        return new LocalDateTimeSerializer()
                 .setIgnoreTimeZone(property != null && property.getMember().hasAnnotation(IgnoreTimeZone.class))
                 .setFormat(property != null ? property.getAnnotation(JsonFormat.class) : null);
     }

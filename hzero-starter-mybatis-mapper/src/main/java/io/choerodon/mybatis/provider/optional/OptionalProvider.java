@@ -25,6 +25,7 @@ public class OptionalProvider extends MapperTemplate {
     }
 
     private static final String OPTIONAL = "optional";
+    private static final String TENANT_ID = "tenant_id";
 
     /**
      * 选择性插入列，只插入传入的列
@@ -208,6 +209,12 @@ public class OptionalProvider extends MapperTemplate {
             sql.append(SqlHelper.getAuditBind());
         }
         sql.append(SqlHelper.getOptionalBind());
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (SqlHelper.TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(SqlHelper.getTenantBind());
+                break;
+            }
+        }
         sql.append(SqlHelper.updateTable(entityClass, tableName(entityClass)));
         Set<EntityColumn> columnList = EntityHelper.getColumns(entityClass);
         sql.append("<set>");
@@ -216,7 +223,13 @@ public class OptionalProvider extends MapperTemplate {
                 continue;
             }
             if (!column.isId() && column.isUpdatable()) {
+                if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                    sql.append("<if test=\"!__tenantLimit or (__tenantId == null and (__tenantIds == null or __tenantIds.isEmpty()))\">");
+                }
                 sql.append(SqlHelper.getIfContains(OPTIONAL, column, column.getColumnEqualsHolder() + ","));
+                if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                    sql.append("</if>");
+                }
             }
         }
         sql.append("</set>");
@@ -226,6 +239,12 @@ public class OptionalProvider extends MapperTemplate {
         //当某个列有主键策略时，不需要考虑他的属性是否为空，因为如果为空，一定会根据主键策略给他生成一个值
         for (EntityColumn column : primaryColumns) {
             sql.append(" AND ").append(column.getColumnEqualsHolder());
+        }
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(SqlHelper.getTenantLimit(column, false, false));
+                break;
+            }
         }
         if (versionAudit) {
             sql.append(" AND OBJECT_VERSION_NUMBER = #{objectVersionNumber}");

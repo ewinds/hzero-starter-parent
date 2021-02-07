@@ -15,9 +15,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * <p>
@@ -28,27 +28,27 @@ import java.util.TimeZone;
  * @author qingsheng.chen 2018/8/27 星期一 9:57
  * @see IgnoreTimeZone
  */
-public class DateDeserializer extends JsonDeserializer<Date> implements ContextualDeserializer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DateDeserializer.class);
+public class LocalDateTimeDeserializer extends JsonDeserializer<LocalDateTime> implements ContextualDeserializer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LocalDateTimeDeserializer.class);
     private boolean ignoreTimeZone = false;
     private DateTimeFormat dateTimeFormat;
 
     @Override
-    public Date deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
+    public LocalDateTime deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
         try {
             String dateString = jsonParser.getValueAsString();
             if (StringUtils.isEmpty(dateString)) {
                 return null;
             }
-            SimpleDateFormat dateFormatGmt = new SimpleDateFormat(getFormat());
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(getFormat());
             if (ignoreTimeZone) {
-                return dateFormatGmt.parse(dateString);
+                return LocalDateTime.parse(dateString, dateTimeFormatter);
             }
             CustomUserDetails details = DetailsHelper.getUserDetails();
             if (details != null && details.getTimeZone() != null) {
-                dateFormatGmt.setTimeZone(TimeZone.getTimeZone(details.getTimeZone()));
+                dateTimeFormatter.withZone(ZoneId.of(details.getTimeZone()));
             }
-            return dateFormatGmt.parse(dateString);
+            return LocalDateTime.parse(dateString, dateTimeFormatter);
         } catch (Exception e) {
             LOGGER.warn("date format error", e);
             return null;
@@ -64,17 +64,17 @@ public class DateDeserializer extends JsonDeserializer<Date> implements Contextu
 
     @Override
     public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) {
-        return new DateDeserializer()
+        return new LocalDateTimeDeserializer()
                 .setIgnoreTimeZone(property != null && property.getMember().hasAnnotation(IgnoreTimeZone.class))
                 .setDateTimeFormat(property != null ? property.getAnnotation(DateTimeFormat.class) : null);
     }
 
-    private DateDeserializer setIgnoreTimeZone(boolean ignoreTimeZone) {
+    private LocalDateTimeDeserializer setIgnoreTimeZone(boolean ignoreTimeZone) {
         this.ignoreTimeZone = ignoreTimeZone;
         return this;
     }
 
-    public DateDeserializer setDateTimeFormat(DateTimeFormat dateTimeFormat) {
+    public LocalDateTimeDeserializer setDateTimeFormat(DateTimeFormat dateTimeFormat) {
         this.dateTimeFormat = dateTimeFormat;
         return this;
     }

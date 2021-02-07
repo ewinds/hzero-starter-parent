@@ -66,6 +66,13 @@ public interface SqlInterceptor {
     }
 
     /**
+     * @return 拦截器抛出异常时是否中断SQL调用
+     */
+    default boolean interrupted() {
+        return false;
+    }
+
+    /**
      * @return SQL 解析拦截器顺序
      */
     default int order() {

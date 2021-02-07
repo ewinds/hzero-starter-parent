@@ -88,7 +88,7 @@ public class FragmentController {
     @ApiOperation(value = "分片文件合并(独立前端使用)")
     @Permission(permissionLogin = true)
     @ResponseBody
-    public ResponseEntity<String> fragmentCombineBlock(@PathVariable Long organizationId, String guid, String fileName, @RequestBody(required = false) Map<String, String> args) throws IOException {
+    public ResponseEntity<String> fragmentCombineBlock(@PathVariable Long organizationId, String guid, String fileName, @RequestBody(required = false) Map<String, String> args) {
         return Results.success(fragmentService.combineUpload(guid, organizationId, fileName, args));
     }
 }

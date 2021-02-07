@@ -1,13 +1,19 @@
 package org.hzero.websocket.registry;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.collections4.MapUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.WebSocketSession;
 
 /**
- * 用户WebSocketSession存储
+ * WebSocketSession存储
  *
  * @author shuangfei.zhu@hand-china.com 2019/04/18 17:19
  */
@@ -16,31 +22,36 @@ public class UserSessionRegistry extends BaseSessionRegistry {
     private UserSessionRegistry() {
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserSessionRegistry.class);
+
     /**
      * 内存存储webSocketSession  sessionId webSocketSession
      */
     private static final Map<String, WebSocketSession> SESSION_MAP = new ConcurrentHashMap<>();
 
     /**
-     * 内存存储webSocketSession  sessionId userId
-     */
-    private static final Map<String, Long> USER_MAP = new ConcurrentHashMap<>();
-
-    /**
      * 添加session存储
      */
-    public static void addSession(WebSocketSession session, String sessionId, Long userId) {
+    public static void addSession(WebSocketSession session, String sessionId) {
         SESSION_MAP.put(sessionId, session);
-        USER_MAP.put(sessionId, userId);
     }
 
     /**
      * 移除session存储
      */
     public static void removeSession(String sessionId) {
-        // 移除sessionId webSocketSession
-        SESSION_MAP.remove(sessionId);
-        USER_MAP.remove(sessionId);
+        try {
+            // 关闭长连接
+            WebSocketSession session = SESSION_MAP.get(sessionId);
+            if (session != null) {
+                session.close();
+            }
+        } catch (IOException e) {
+            LOGGER.trace("close websocket failed! sessionId : {}", sessionId);
+        } finally {
+            // 移除sessionId webSocketSession
+            SESSION_MAP.remove(sessionId);
+        }
     }
 
     /**
@@ -54,12 +65,12 @@ public class UserSessionRegistry extends BaseSessionRegistry {
     }
 
     /**
-     * 获取userId
+     * 获取WebSocketSession
      */
-    public static Long getUser(String sessionId) {
-        if (MapUtils.isEmpty(USER_MAP)) {
-            return null;
+    public static List<WebSocketSession> getAllSession() {
+        if (MapUtils.isEmpty(SESSION_MAP)) {
+            return Collections.emptyList();
         }
-        return USER_MAP.get(sessionId);
+        return new ArrayList<>(SESSION_MAP.values());
     }
 }

@@ -7,28 +7,24 @@ import com.ctrip.framework.apollo.model.ConfigChangeEvent;
 import org.hzero.apollo.config.client.namespace.NamespaceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.cloud.context.environment.EnvironmentChangeEvent;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.stereotype.Component;
+import org.springframework.cloud.context.refresh.ContextRefresher;
 
 /**
  * 环境变量刷新类，用于刷新Spring上下文的配置项
  * @author XCXCXCXCX
  */
-@Component
-public class EnvironmentRefresher implements ConfigChangeListener, ApplicationContextAware, InitializingBean {
+public class EnvironmentRefresher implements ConfigChangeListener, InitializingBean {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentRefresher.class);
 
-    private ApplicationContext applicationContext;
+    private final ContextRefresher contextRefresher;
 
     private final ApolloConfigListenerProperties properties;
 
-    public EnvironmentRefresher(ApolloConfigListenerProperties properties) {
+    public EnvironmentRefresher(ContextRefresher contextRefresher, ApolloConfigListenerProperties properties) {
         this.properties = properties;
+        this.contextRefresher = contextRefresher;
     }
 
     @Override
@@ -49,14 +45,9 @@ public class EnvironmentRefresher implements ConfigChangeListener, ApplicationCo
     }
 
     private void refreshEnvironment(ConfigChangeEvent changeEvent) {
-        LOGGER.info("Refreshing environment!");
-        applicationContext.publishEvent(new EnvironmentChangeEvent(changeEvent.changedKeys()));
+        LOGGER.info("Refreshing environment! keys changed:{}", changeEvent.changedKeys().toString());
+        contextRefresher.refresh();
         LOGGER.info("Refreshed environment!");
-    }
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
     }
 
 }

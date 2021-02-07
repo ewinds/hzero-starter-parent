@@ -9,10 +9,14 @@ import io.choerodon.mybatis.helper.LanguageHelper;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
+import org.hzero.core.base.BaseConstants;
+import org.hzero.core.util.Reflections;
 import org.hzero.mybatis.annotation.Unique;
 import org.hzero.mybatis.domian.Language;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -43,8 +47,16 @@ public class UniqueHelper {
         return sqlSessionFactory;
     }
 
+    public static <T extends AuditDomain> void isUnique(T entity) {
+        Assert.isTrue(valid(entity), BaseConstants.ErrorCode.DATA_EXISTS);
+    }
+
     public static <T extends AuditDomain> boolean valid(T entity) {
         return valid(entity, Unique.DEFAULT_CONSTRAINT_NAME);
+    }
+
+    public static <T extends AuditDomain> void isUnique(T entity, String constraintName) {
+        Assert.isTrue(valid(entity, constraintName), BaseConstants.ErrorCode.DATA_EXISTS);
     }
 
     public static <T extends AuditDomain> boolean valid(T entity, String constraintName) {
@@ -64,6 +76,64 @@ public class UniqueHelper {
             logger.error("Error execute unique valid : {}", e);
             return true;
         }
+    }
+
+    public static <T extends AuditDomain> List<T> valid(Collection<T> entityList) {
+        return valid(entityList, null, Unique.DEFAULT_CONSTRAINT_NAME);
+    }
+
+    public static <T extends AuditDomain> List<T> valid(Collection<T> entityList, Class<T> entityClass) {
+        return valid(entityList, entityClass, Unique.DEFAULT_CONSTRAINT_NAME);
+    }
+
+    public static <T extends AuditDomain> List<T> valid(Collection<T> entityList, String constraintName) {
+        return valid(entityList, null, constraintName);
+    }
+
+    public static <T extends AuditDomain> List<T> valid(Collection<T> entityList, Class<T> entityClass, String constraintName) {
+        if (CollectionUtils.isEmpty(entityList)) {
+            return Collections.emptyList();
+        }
+        List<T> repeatList = new ArrayList<>();
+        // 从泛型获取
+        Class<?> realType = entityClass == null ? entityClass = Reflections.getClassGenericType(entityList.getClass()) : entityClass;
+        // 获取泛型失败
+        if (!AuditDomain.class.isAssignableFrom(realType)) {
+            realType = entityList.stream().findFirst().orElseThrow(IllegalStateException::new).getClass();
+        }
+        if (!AuditDomain.class.isAssignableFrom(realType)) {
+            throw new IllegalArgumentException("Unable to find entity class.");
+        }
+        EntityTable entityTable = EntityHelper.getEntityTable(realType);
+        Set<EntityColumn> uniqueColumns = entityTable.getUniqueColumns(constraintName);
+        if (uniqueColumns.isEmpty()) {
+            logger.debug("Not found unique constraint for {}", entityClass);
+            return Collections.emptyList();
+        }
+        // 校验列表内是否有重复
+        Set<Map<String, Object>> uniqueSet = new HashSet<>(entityList.size());
+        for (T entity : entityList) {
+            try {
+                Map<String, Object> uniqueMap = new HashMap<>(uniqueColumns.size());
+                for (EntityColumn uniqueColumn : uniqueColumns) {
+                    uniqueMap.put(uniqueColumn.getField().getName(), FieldUtils.readField(entity, uniqueColumn.getField().getName(), true));
+                }
+                if (uniqueSet.contains(uniqueMap)) {
+                    // 内存重复
+                    repeatList.add(entity);
+                    continue;
+                }
+                // 内存不重复，校验数据库
+                uniqueSet.add(uniqueMap);
+                if (!valid(entityTable, entity, uniqueColumns)) {
+                    // 数据库重复
+                    repeatList.add(entity);
+                }
+            } catch (Exception e) {
+                logger.error("Error get value from entity.", e);
+            }
+        }
+        return repeatList;
     }
 
     private static <T extends AuditDomain> boolean valid(EntityTable entityTable, T entity, Set<EntityColumn> uniqueColumns) throws SQLException, IllegalAccessException {

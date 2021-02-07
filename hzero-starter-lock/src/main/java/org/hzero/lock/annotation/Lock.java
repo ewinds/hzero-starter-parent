@@ -23,6 +23,11 @@ public @interface Lock {
     String name() default "";
 
     /**
+     * name 是否使用spel表达式
+     */
+    boolean nameIsSpel() default false;
+
+    /**
      * 锁类型，默认可重入锁
      */
     LockType lockType() default LockType.FAIR;
@@ -46,5 +51,4 @@ public @interface Lock {
      * 自定义业务key
      */
     String[] keys() default {};
-
 }

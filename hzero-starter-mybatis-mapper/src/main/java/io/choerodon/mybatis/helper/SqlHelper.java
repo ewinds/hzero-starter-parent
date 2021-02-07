@@ -57,7 +57,7 @@ import java.util.*;
  * @since 2015-11-03 22:40
  */
 public class SqlHelper {
-    private static final String TENANT_ID = "tenant_id";
+    public static final String TENANT_ID = "tenant_id";
     private static Logger logger = LoggerFactory.getLogger(SqlHelper.class);
 
     public static final List<String> MODIFY_AUDIT_FIELDS = Collections.unmodifiableList(Arrays.asList("creationDate", "createdBy", "lastUpdateDate", "lastUpdatedBy"));
@@ -92,7 +92,7 @@ public class SqlHelper {
     public static String getWhereTenantLimit(Class<?> entityClass) {
         for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
             if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
-                return LEFT_WHERE + getTenantLimit(column) + RIGHT_WHERE;
+                return LEFT_WHERE + getTenantLimit(column, true, true) + RIGHT_WHERE;
             }
         }
         return "";
@@ -101,21 +101,21 @@ public class SqlHelper {
     public static String getTenantLimit(Class<?> entityClass) {
         for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
             if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
-                return getTenantLimit(column);
+                return getTenantLimit(column, true, true);
             }
         }
         return "";
     }
 
-    private static String getTenantLimit(EntityColumn column) {
+    public static String getTenantLimit(EntityColumn column, boolean withAlias, boolean withBind) {
         String columnName = column.getColumn();
-        if (column.isMultiLanguage() || column.isId() && column.getTable().isMultiLanguage()) {
+        if (withAlias && (column.isMultiLanguage() || column.isId() && column.getTable().isMultiLanguage())) {
             columnName = "t." + columnName;
         }
-        return getTenantBind() +
-                "<if test=\"__tenantId != null and __tenantLimit and __equal\">AND " +
+        return (withBind ? getTenantBind() : "") +
+                "<if test=\"__tenantId != null and __tenantLimit and __equal\"> AND " +
                 columnName +
-                " = #{__tenantId,jdbcType=BIGINT,javaType=java.lang.Long}</if><if test=\"__tenantIds != null and !__tenantIds.isEmpty() and __tenantLimit and !__equal\">AND " +
+                " = #{__tenantId,jdbcType=BIGINT,javaType=java.lang.Long}</if><if test=\"__tenantIds != null and !__tenantIds.isEmpty() and __tenantLimit and !__equal\"> AND " +
                 columnName +
                 " IN <foreach collection=\"__tenantIds\" separator=\",\" item=\"___tenantId\" open=\"(\" close=\")\">#{___tenantId,jdbcType=BIGINT,javaType=java.lang.Long}</foreach></if>";
     }
@@ -612,11 +612,17 @@ public class SqlHelper {
                 continue;
             }
             if (!column.isId() && column.isUpdatable()) {
+                if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                    sql.append("<if test=\"!__tenantLimit or (__tenantId == null and (__tenantIds == null or __tenantIds.isEmpty()))\">");
+                }
                 if (notNull) {
                     sql.append(SqlHelper.getIfNotNull(entityName, column,
                             column.getColumnEqualsHolder(entityName) + ",", notEmpty));
                 } else {
-                    sql.append(column.getColumnEqualsHolder(entityName) + ",");
+                    sql.append(column.getColumnEqualsHolder(entityName)).append(",");
+                }
+                if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                    sql.append("</if>");
                 }
             }
         }
@@ -663,7 +669,8 @@ public class SqlHelper {
         }
         for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
             if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
-                sql.append(getTenantLimit(column));
+                sql.append(getTenantLimit(column, true, true));
+                break;
             }
         }
         sql.append(RIGHT_WHERE);
@@ -686,6 +693,12 @@ public class SqlHelper {
         for (EntityColumn column : columnList) {
             sql.append(AND + column.getColumnEqualsHolder(null));
         }
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(getTenantLimit(column, false, true));
+                break;
+            }
+        }
         sql.append(RIGHT_WHERE);
         return sql.toString();
     }
@@ -705,6 +718,12 @@ public class SqlHelper {
         // 当某个列有主键策略时，不需要考虑他的属性是否为空，因为如果为空，一定会根据主键策略给他生成一个值
         for (EntityColumn column : columnList) {
             sql.append(AND).append(column.getColumnEqualsHolder(null));
+        }
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(getTenantLimit(column, false, false));
+                break;
+            }
         }
         if (versionAudit) {
             sql.append(" AND OBJECT_VERSION_NUMBER = #{objectVersionNumber}");
@@ -728,6 +747,9 @@ public class SqlHelper {
         //当某个列有主键策略时，不需要考虑他的属性是否为空，因为如果为空，一定会根据主键策略给他生成一个值
         for (EntityColumn column : columnList) {
             sql.append(getIfNotNull(column, AND + column.getColumnEqualsHolder(null), empty));
+            if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(getTenantLimit(column, false, true));
+            }
         }
         sql.append(RIGHT_WHERE);
         return sql.toString();
@@ -749,7 +771,7 @@ public class SqlHelper {
         for (EntityColumn column : columnList) {
             sql.append(getIfNotNull(column, AND + column.getColumnEqualsHolderTl(null), empty));
             if (TENANT_ID.equalsIgnoreCase(column.getColumn())) {
-                sql.append(getTenantLimit(column));
+                sql.append(getTenantLimit(column, true, true));
             }
         }
         sql.append(RIGHT_WHERE);

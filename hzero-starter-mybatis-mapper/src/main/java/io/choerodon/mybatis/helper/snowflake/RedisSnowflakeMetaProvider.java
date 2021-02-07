@@ -1,7 +1,14 @@
 package io.choerodon.mybatis.helper.snowflake;
 
-import io.choerodon.core.exception.CommonException;
-import io.choerodon.mybatis.MybatisConfigurationProperties;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.commons.lang3.BooleanUtils;
 import org.hzero.core.redis.RedisHelper;
 import org.slf4j.Logger;
@@ -11,14 +18,8 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import io.choerodon.core.exception.CommonException;
+import io.choerodon.mybatis.MybatisConfigurationProperties;
 
 /**
  * @author qingsheng.chen@hand-china.com

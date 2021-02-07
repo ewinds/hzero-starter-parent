@@ -26,10 +26,14 @@ package io.choerodon.mybatis.provider.base;
 
 import io.choerodon.mybatis.annotation.ModifyAudit;
 import io.choerodon.mybatis.annotation.VersionAudit;
+import io.choerodon.mybatis.domain.EntityColumn;
+import io.choerodon.mybatis.helper.EntityHelper;
 import io.choerodon.mybatis.helper.MapperHelper;
 import io.choerodon.mybatis.helper.MapperTemplate;
 import io.choerodon.mybatis.helper.SqlHelper;
 import org.apache.ibatis.mapping.MappedStatement;
+
+import java.util.Set;
 
 /**
  * BaseUpdateProvider实现类，基础方法实现类
@@ -46,8 +50,8 @@ public class BaseUpdateProvider extends MapperTemplate {
      * 通过主键更新全部字段
      *
      * @param ms MappedStatement
-     * @throws Exception Exception
      * @return String String
+     * @throws Exception Exception
      */
     public String updateByPrimaryKey(MappedStatement ms) throws Exception {
         Class<?> entityClass = getEntityClass(ms);
@@ -56,6 +60,12 @@ public class BaseUpdateProvider extends MapperTemplate {
         StringBuilder sql = new StringBuilder();
         if (modifyAudit || versionAudit) {
             sql.append(SqlHelper.getAuditBind());
+        }
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (SqlHelper.TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(SqlHelper.getTenantBind());
+                break;
+            }
         }
         sql.append(SqlHelper.updateTable(entityClass, tableName(entityClass)));
         sql.append(SqlHelper.updateSetColumnsAndVersion(entityClass, null, false, false));
@@ -67,8 +77,8 @@ public class BaseUpdateProvider extends MapperTemplate {
      * 通过主键更新不为null的字段
      *
      * @param ms MappedStatement
-     * @throws Exception Exception
      * @return String String
+     * @throws Exception Exception
      */
     public String updateByPrimaryKeySelective(MappedStatement ms) throws Exception {
         Class<?> entityClass = getEntityClass(ms);
@@ -77,6 +87,12 @@ public class BaseUpdateProvider extends MapperTemplate {
         StringBuilder sql = new StringBuilder();
         if (modifyAudit || versionAudit) {
             sql.append(SqlHelper.getAuditBind());
+        }
+        for (EntityColumn column : EntityHelper.getColumns(entityClass)) {
+            if (SqlHelper.TENANT_ID.equalsIgnoreCase(column.getColumn())) {
+                sql.append(SqlHelper.getTenantBind());
+                break;
+            }
         }
         sql.append(SqlHelper.updateTable(entityClass, tableName(entityClass)));
         sql.append(SqlHelper.updateSetColumnsAndVersion(entityClass, null, true, isNotEmpty()));

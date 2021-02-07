@@ -1,9 +1,9 @@
 package org.hzero.mybatis.util;
 
+import org.springframework.util.StringUtils;
+
 import java.util.ArrayList;
 import java.util.List;
-
-import org.springframework.util.StringUtils;
 
 /**
  * SQL工具类
@@ -75,7 +75,23 @@ public class Sqls {
         return this;
     }
 
+    public Sqls andGreaterThan(String property, Object value, boolean ignoreNull) {
+        if (ignoreNull && value == null) {
+            return this;
+        }
+        this.criteria.criterions.add(new Criterion(property, value, ">", "and"));
+        return this;
+    }
+
     public Sqls andGreaterThanOrEqualTo(String property, Object value) {
+        this.criteria.criterions.add(new Criterion(property, value, ">=", "and"));
+        return this;
+    }
+
+    public Sqls andGreaterThanOrEqualTo(String property, Object value, boolean ignoreNull) {
+        if (ignoreNull && value == null) {
+            return this;
+        }
         this.criteria.criterions.add(new Criterion(property, value, ">=", "and"));
         return this;
     }
@@ -86,7 +102,23 @@ public class Sqls {
         return this;
     }
 
+    public Sqls andLessThan(String property, Object value, boolean ignoreNull) {
+        if (ignoreNull && value == null) {
+            return this;
+        }
+        this.criteria.criterions.add(new Criterion(property, value, "<", "and"));
+        return this;
+    }
+
     public Sqls andLessThanOrEqualTo(String property, Object value) {
+        this.criteria.criterions.add(new Criterion(property, value, "<=", "and"));
+        return this;
+    }
+
+    public Sqls andLessThanOrEqualTo(String property, Object value, boolean ignoreNull) {
+        if (ignoreNull && value == null) {
+            return this;
+        }
         this.criteria.criterions.add(new Criterion(property, value, "<=", "and"));
         return this;
     }

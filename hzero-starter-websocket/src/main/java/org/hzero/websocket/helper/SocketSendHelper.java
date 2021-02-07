@@ -2,25 +2,25 @@ package org.hzero.websocket.helper;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.CollectionUtils;
 import org.hzero.core.base.BaseConstants;
 import org.hzero.websocket.constant.WebSocketConstant;
 import org.hzero.websocket.redis.BrokerListenRedis;
-import org.hzero.websocket.redis.BrokerUserSessionRedis;
+import org.hzero.websocket.redis.BrokerSessionRedis;
+import org.hzero.websocket.redis.SessionRedis;
+import org.hzero.websocket.redis.UserSessionRedis;
 import org.hzero.websocket.registry.BaseSessionRegistry;
 import org.hzero.websocket.registry.UserSessionRegistry;
 import org.hzero.websocket.util.SocketSessionUtils;
 import org.hzero.websocket.vo.MsgVO;
-import org.hzero.websocket.vo.UserVO;
+import org.hzero.websocket.vo.SessionVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.choerodon.core.exception.CommonException;
 
@@ -49,13 +49,17 @@ public class SocketSendHelper {
             MsgVO msg = new MsgVO().setSessionId(sessionId).setKey(key).setMessage(message).setType(WebSocketConstant.SendType.SESSION).setBrokerId(BaseSessionRegistry.getBrokerId());
             String msgStr = objectMapper.writeValueAsString(msg);
             // 优先本地消费
-            WebSocketSession session = UserSessionRegistry.getSession(sessionId);
-            if (session != null) {
-                SocketSessionUtils.sendMsg(session, sessionId, msgStr);
+            WebSocketSession webSocketSession = UserSessionRegistry.getSession(sessionId);
+            if (webSocketSession != null) {
+                SocketSessionUtils.sendMsg(webSocketSession, sessionId, msgStr);
                 return;
             }
-            // 通知其他服务
-            redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, msgStr);
+            SessionVO session = SessionRedis.getSession(sessionId);
+            if (session == null) {
+                return;
+            }
+            // 通知目标服务
+            redisTemplate.convertAndSend(session.getBrokerId(), msgStr);
         } catch (JsonProcessingException e) {
             throw new CommonException(BaseConstants.ErrorCode.ERROR, e);
         }
@@ -72,13 +76,17 @@ public class SocketSendHelper {
         try {
             MsgVO msg = new MsgVO().setSessionId(sessionId).setKey(key).setData(data).setType(WebSocketConstant.SendType.SESSION).setBrokerId(BaseSessionRegistry.getBrokerId());
             // 优先本地消费
-            WebSocketSession session = UserSessionRegistry.getSession(sessionId);
-            if (session != null) {
-                SocketSessionUtils.sendMsg(session, sessionId, data);
+            WebSocketSession webSocketSession = UserSessionRegistry.getSession(sessionId);
+            if (webSocketSession != null) {
+                SocketSessionUtils.sendMsg(webSocketSession, sessionId, data);
                 return;
             }
-            // 通知其他服务
-            redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, objectMapper.writeValueAsString(msg));
+            SessionVO session = SessionRedis.getSession(sessionId);
+            if (session == null) {
+                return;
+            }
+            // 通知目标服务
+            redisTemplate.convertAndSend(session.getBrokerId(), objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
             throw new CommonException(BaseConstants.ErrorCode.ERROR, e);
         }
@@ -97,8 +105,7 @@ public class SocketSendHelper {
             MsgVO msg = new MsgVO().setUserId(userId).setKey(key).setMessage(message).setType(WebSocketConstant.SendType.USER).setBrokerId(brokerId);
             String msgStr = objectMapper.writeValueAsString(msg);
             // 优先本地消费
-            List<UserVO> userList = BrokerUserSessionRedis.getCache(brokerId, msg.getUserId());
-            List<String> sessionIdList = userList.stream().map(UserVO::getSessionId).collect(Collectors.toList());
+            List<String> sessionIdList = UserSessionRedis.getSessionIds(userId);
             SocketSessionUtils.sendUserMsg(sessionIdList, msgStr);
             // 通知其他服务
             notice(userId, msgStr);
@@ -119,8 +126,7 @@ public class SocketSendHelper {
             String brokerId = BaseSessionRegistry.getBrokerId();
             MsgVO msg = new MsgVO().setUserId(userId).setKey(key).setData(data).setType(WebSocketConstant.SendType.USER).setBrokerId(brokerId);
             // 优先本地消费
-            List<UserVO> userList = BrokerUserSessionRedis.getCache(brokerId, msg.getUserId());
-            List<String> sessionIdList = userList.stream().map(UserVO::getSessionId).collect(Collectors.toList());
+            List<String> sessionIdList = UserSessionRedis.getSessionIds(userId);
             SocketSessionUtils.sendUserMsg(sessionIdList, data);
             // 通知其他服务
             notice(userId, objectMapper.writeValueAsString(msg));
@@ -141,9 +147,10 @@ public class SocketSendHelper {
             MsgVO msg = new MsgVO().setKey(key).setMessage(message).setType(WebSocketConstant.SendType.ALL).setBrokerId(brokerId);
             String msgStr = objectMapper.writeValueAsString(msg);
             // 优先本地消费
-            List<UserVO> users = BrokerUserSessionRedis.getCache(brokerId);
-            List<String> sessionIdList = users.stream().map(UserVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendUserMsg(sessionIdList, msgStr);
+            List<WebSocketSession> userSessionList = UserSessionRegistry.getAllSession();
+            for (WebSocketSession item : userSessionList) {
+                SocketSessionUtils.sendMsg(item, msg.getSessionId(), msgStr);
+            }
             // 通知其他服务
             redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, msgStr);
         } catch (JsonProcessingException e) {
@@ -162,9 +169,10 @@ public class SocketSendHelper {
             String brokerId = BaseSessionRegistry.getBrokerId();
             MsgVO msg = new MsgVO().setKey(key).setData(data).setType(WebSocketConstant.SendType.ALL).setBrokerId(brokerId);
             // 优先本地消费
-            List<UserVO> users = BrokerUserSessionRedis.getCache(brokerId);
-            List<String> sessionIdList = users.stream().map(UserVO::getSessionId).collect(Collectors.toList());
-            SocketSessionUtils.sendUserMsg(sessionIdList, data);
+            List<WebSocketSession> userSessionList = UserSessionRegistry.getAllSession();
+            for (WebSocketSession item : userSessionList) {
+                SocketSessionUtils.sendMsg(item, msg.getSessionId(), data);
+            }
             // 通知其他服务
             redisTemplate.convertAndSend(WebSocketConstant.CHANNEL, objectMapper.writeValueAsString(msg));
         } catch (JsonProcessingException e) {
@@ -179,12 +187,16 @@ public class SocketSendHelper {
         // 获取所有实例
         String brokerId = BaseSessionRegistry.getBrokerId();
         List<String> brokerList = BrokerListenRedis.getCache();
+        List<String> userSession = UserSessionRedis.getSessionIds(userId);
         brokerList.forEach(item -> {
             if (Objects.equals(item, brokerId)) {
+                // 本节点不用处理
                 return;
             }
-            List<UserVO> list = BrokerUserSessionRedis.getCache(item, userId);
-            if (CollectionUtils.isNotEmpty(list)) {
+            List<String> brokerSession = BrokerSessionRedis.getSessionIds(item);
+            brokerSession.retainAll(userSession);
+            if (CollectionUtils.isNotEmpty(brokerSession)) {
+                // 该节点有指定用户session信息，发送通知
                 redisTemplate.convertAndSend(item, msgStr);
             }
         });

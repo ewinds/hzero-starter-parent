@@ -1,9 +1,15 @@
 package org.hzero.websocket.registry;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.collections4.MapUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.WebSocketSession;
 
 /**
@@ -16,31 +22,36 @@ public class GroupSessionRegistry extends BaseSessionRegistry {
     private GroupSessionRegistry() {
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GroupSessionRegistry.class);
+
     /**
      * 内存存储webSocketSession  sessionId webSocketSession
      */
     private static final Map<String, WebSocketSession> SESSION_MAP = new ConcurrentHashMap<>();
 
     /**
-     * 内存存储webSocketSession  sessionId group
-     */
-    private static final Map<String, String> GROUP_MAP = new ConcurrentHashMap<>();
-
-    /**
      * 添加session存储
      */
-    public static void addSession(WebSocketSession session, String sessionId, String group) {
+    public static void addSession(WebSocketSession session, String sessionId) {
         SESSION_MAP.put(sessionId, session);
-        GROUP_MAP.put(sessionId, group);
     }
 
     /**
      * 移除session存储
      */
     public static void removeSession(String sessionId) {
-        // 移除sessionId webSocketSession
-        SESSION_MAP.remove(sessionId);
-        GROUP_MAP.remove(sessionId);
+        try {
+            // 关闭长连接
+            WebSocketSession session = SESSION_MAP.get(sessionId);
+            if (session != null) {
+                session.close();
+            }
+        } catch (IOException e) {
+            LOGGER.trace("close websocket failed! sessionId : {}", sessionId);
+        } finally {
+            // 移除sessionId webSocketSession
+            SESSION_MAP.remove(sessionId);
+        }
     }
 
     /**
@@ -54,12 +65,12 @@ public class GroupSessionRegistry extends BaseSessionRegistry {
     }
 
     /**
-     * 获取group
+     * 获取WebSocketSession
      */
-    public static String getGroup(String sessionId) {
-        if (MapUtils.isEmpty(GROUP_MAP)) {
-            return null;
+    public static List<WebSocketSession> getAllSession() {
+        if (MapUtils.isEmpty(SESSION_MAP)) {
+            return Collections.emptyList();
         }
-        return GROUP_MAP.get(sessionId);
+        return new ArrayList<>(SESSION_MAP.values());
     }
 }

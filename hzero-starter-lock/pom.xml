@@ -5,10 +5,9 @@
     <parent>
         <groupId>org.hzero.starter</groupId>
         <artifactId>hzero-starter-parent</artifactId>
-        <version>1.4.0.RELEASE</version>
+        <version>1.5.0.RELEASE</version>
     </parent>
     <artifactId>hzero-starter-lock</artifactId>
-    <version>1.4.1.RELEASE</version>
 
     <dependencies>
         <!-- hzero -->

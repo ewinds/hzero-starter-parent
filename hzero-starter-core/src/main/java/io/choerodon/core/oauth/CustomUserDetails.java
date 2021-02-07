@@ -1,19 +1,18 @@
 package io.choerodon.core.oauth;
 
-import java.io.Serializable;
-import java.util.*;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hzero.core.user.UserType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.util.CollectionUtils;
 
-import org.hzero.core.user.UserType;
+import java.io.Serializable;
+import java.util.*;
 
 /**
  * 定制的userDetail对象
@@ -116,6 +115,10 @@ public class CustomUserDetails extends User implements Serializable {
      * 接口加密标识
      */
     private Integer apiEncryptFlag;
+    /**
+     * api防重放标识
+     */
+    private Integer apiReplayFlag;
 
     public CustomUserDetails(String username,
                              String password,
@@ -458,6 +461,15 @@ public class CustomUserDetails extends User implements Serializable {
         return this;
     }
 
+    public Integer getApiReplayFlag() {
+        return apiReplayFlag;
+    }
+
+    public CustomUserDetails setApiReplayFlag(Integer apiReplayFlag) {
+        this.apiReplayFlag = apiReplayFlag;
+        return this;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -490,12 +502,13 @@ public class CustomUserDetails extends User implements Serializable {
                 Objects.equals(clientRefreshTokenValiditySeconds, that.clientRefreshTokenValiditySeconds) &&
                 Objects.equals(clientAutoApproveScopes, that.clientAutoApproveScopes) &&
                 Objects.equals(additionInfo, that.additionInfo) &&
-                Objects.equals(apiEncryptFlag, that.apiEncryptFlag);
+                Objects.equals(apiEncryptFlag, that.apiEncryptFlag) &&
+                Objects.equals(apiReplayFlag, that.apiReplayFlag);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), userId, realName, email, timeZone, language, roleId, roleIds, siteRoleIds, tenantRoleIds, roleMergeFlag, tenantId, tenantNum, tenantIds, imageUrl, organizationId, isAdmin, clientId, clientName, clientAuthorizedGrantTypes, clientResourceIds, clientScope, clientRegisteredRedirectUri, clientAccessTokenValiditySeconds, clientRefreshTokenValiditySeconds, clientAutoApproveScopes, additionInfo, additionInfoMeaning, apiEncryptFlag);
+        return Objects.hash(super.hashCode(), userId, realName, email, timeZone, language, roleId, roleIds, siteRoleIds, tenantRoleIds, roleMergeFlag, tenantId, tenantNum, tenantIds, imageUrl, organizationId, isAdmin, clientId, clientName, clientAuthorizedGrantTypes, clientResourceIds, clientScope, clientRegisteredRedirectUri, clientAccessTokenValiditySeconds, clientRefreshTokenValiditySeconds, clientAutoApproveScopes, additionInfo, additionInfoMeaning, apiEncryptFlag, apiReplayFlag);
     }
 
     @Override
@@ -529,6 +542,7 @@ public class CustomUserDetails extends User implements Serializable {
                 ", clientAutoApproveScopes=" + clientAutoApproveScopes +
                 ", additionInfo=" + additionInfo +
                 ", apiEncryptFlag=" + apiEncryptFlag +
+                ", apiReplayFlag=" + apiReplayFlag +
                 ", roleLabels='" + roleLabels +
                 '}';
     }

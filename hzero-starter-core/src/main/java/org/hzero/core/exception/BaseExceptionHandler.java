@@ -75,7 +75,7 @@ public class BaseExceptionHandler {
      * @return ExceptionResponse
      */
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, HandlerMethod method, NotFoundException exception) {
+    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, NotFoundException exception) {
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn("Not found exception", exception);
         }
@@ -157,7 +157,7 @@ public class BaseExceptionHandler {
      * @return ExceptionResponse
      */
     @ExceptionHandler(MessageException.class)
-    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, HandlerMethod method, MessageException exception) {
+    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, MessageException exception) {
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn(exception.getMessage(), exception);
         }
@@ -223,7 +223,7 @@ public class BaseExceptionHandler {
      * @return ExceptionResponse
      */
     @ExceptionHandler(NotLoginException.class)
-    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, HandlerMethod method, NotLoginException exception) {
+    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, NotLoginException exception) {
         if (LOGGER.isWarnEnabled()) {
             LOGGER.warn(exception.getMessage(), exception);
         }
@@ -239,9 +239,9 @@ public class BaseExceptionHandler {
      * @return ExceptionResponse
      */
     @ExceptionHandler({RuntimeException.class, Exception.class})
-    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, HandlerMethod method, Exception exception) {
+    public ResponseEntity<ExceptionResponse> process(HttpServletRequest request, Exception exception) {
         if (LOGGER.isErrorEnabled()) {
-            LOGGER.error(exceptionMessage("Unknown exception", request, method), exception);
+            LOGGER.error(exceptionMessage("Unknown exception", request, null), exception);
         }
         ExceptionResponse er = new ExceptionResponse(BaseConstants.ErrorCode.ERROR);
         setDevException(er, exception);
@@ -281,7 +281,8 @@ public class BaseExceptionHandler {
     }
 
     private String exceptionMessage(String message, HttpServletRequest request, HandlerMethod method) {
-        return String.format(message + ", Request: {URI=%s, method=%s}, User: %s", request.getRequestURI(), method.toString(), currentUserInfo());
+        return String.format(message + ", Request: {URI=%s, method=%s}, User: %s", request.getRequestURI(),
+                Optional.ofNullable(method).map(HandlerMethod::toString).orElse("NullMethod"), currentUserInfo());
     }
 
     private String currentUserInfo() {

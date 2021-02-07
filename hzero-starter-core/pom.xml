@@ -6,10 +6,10 @@
     <parent>
         <groupId>org.hzero.starter</groupId>
         <artifactId>hzero-starter-parent</artifactId>
-        <version>1.4.0.RELEASE</version>
+        <version>1.5.0.RELEASE</version>
     </parent>
     <artifactId>hzero-starter-core</artifactId>
-    <version>1.4.7.RELEASE</version>
+    <version>1.5.4.RELEASE</version>
 
     <properties>
         <spring-security-oauth2.version>2.3.5.RELEASE</spring-security-oauth2.version>
@@ -163,7 +163,7 @@
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
-            <version>8.10.3</version>
+            <version>8.12.6</version>
         </dependency>
 
 

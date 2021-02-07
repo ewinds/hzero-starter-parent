@@ -15,7 +15,7 @@ import org.hzero.websocket.listener.SocketMessageListener;
 import org.hzero.websocket.redis.*;
 import org.hzero.websocket.registry.BaseSessionRegistry;
 import org.hzero.websocket.registry.UserSessionRegistry;
-import org.hzero.websocket.vo.UserVO;
+import org.hzero.websocket.vo.SessionVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +26,6 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -62,24 +61,12 @@ public class ClientInit implements CommandLineRunner {
                         .namingPattern("websocket-client-register")
                         .daemon(true)
                         .build());
-        scheduledExecutorService.scheduleWithFixedDelay(new ClientInit.ClientRegister(connectionFactory, container, listener, taskExecutor), 0, 10, TimeUnit.SECONDS);
+        scheduledExecutorService.scheduleWithFixedDelay(new ClientInit.ClientRegister(), 0, 10, TimeUnit.SECONDS);
         // 在线用户自检线程
         scheduledExecutorService.scheduleWithFixedDelay(new ClientInit.Check(), 0, 600, TimeUnit.SECONDS);
     }
 
-    static class ClientRegister implements Runnable {
-
-        private final RedisConnectionFactory connectionFactory;
-        private RedisMessageListenerContainer container;
-        private final SocketMessageListener listener;
-        private final AsyncTaskExecutor executor;
-
-        public ClientRegister(RedisConnectionFactory connectionFactory, RedisMessageListenerContainer container, SocketMessageListener listener, AsyncTaskExecutor taskExecutor) {
-            this.connectionFactory = connectionFactory;
-            this.container = container;
-            this.listener = listener;
-            this.executor = taskExecutor;
-        }
+    class ClientRegister implements Runnable {
 
         @Override
         public void run() {
@@ -90,18 +77,38 @@ public class ClientInit implements CommandLineRunner {
                 BrokerListenRedis.refreshCache(brokerId);
 
                 // 下面的检查逻辑，异步执行，防止执行时间超过5秒导致当前客户端下线
-                executor.execute(() -> {
+                taskExecutor.execute(() -> {
                     try {
                         // 检查其他客户端状态
                         List<String> brokerList = BrokerListenRedis.getCache();
-                        brokerList.forEach(item -> {
-                            if (!BrokerRedis.isAlive(item)) {
-                                BrokerListenRedis.clearRedisCache(item);
-                                // 清除服务session
-                                BrokerUserSessionRedis.clearRedisCacheByBrokerId(item);
-                                BrokerServerSessionRedis.clearRedisCacheByBrokerId(item);
+                        for (String item : brokerList) {
+                            if (BrokerRedis.isAlive(item)) {
+                                continue;
                             }
-                        });
+                            BrokerListenRedis.clearRedisCache(item);
+                            List<String> sessionIds = BrokerSessionRedis.getSessionIds(item);
+                            // 清除节点
+                            BrokerSessionRedis.clearCache(item);
+                            for (String sessionId : sessionIds) {
+                                SessionVO session = SessionRedis.getSession(sessionId);
+                                SessionRedis.clearCache(sessionId);
+                                if (session == null) {
+                                    continue;
+                                }
+                                Long userId = session.getUserId();
+                                if (userId != null) {
+                                    // 清除在线用户
+                                    OnlineUserRedis.deleteCache(session);
+                                    // 清理用户session
+                                    UserSessionRedis.clearCache(userId, sessionId);
+                                }
+                                String group = session.getGroup();
+                                if (StringUtils.isNotBlank(group)) {
+                                    // 清理group的session
+                                    GroupSessionRedis.clearCache(group, sessionId);
+                                }
+                            }
+                        }
                         // 检查channel监听是否有效
                         logger.debug("websocket container running: {}", container.isRunning());
                         if (!container.isRunning()) {
@@ -133,17 +140,20 @@ public class ClientInit implements CommandLineRunner {
                 // 分批查询
                 int page = 0;
                 int size = 500;
-                List<UserVO> userList;
+                List<SessionVO> sessionList;
                 do {
-                    userList = SessionUserRedis.getCache(page, size);
-                    for (UserVO item : userList) {
+                    sessionList = OnlineUserRedis.getCache(page, size);
+                    for (SessionVO item : sessionList) {
                         String sessionId = item.getSessionId();
                         // 所属客户端已下线
                         if (StringUtils.isBlank(item.getBrokerId()) || !liveBrokerList.contains(item.getBrokerId())) {
-                            // 清理Session-User
-                            SessionUserRedis.deleteCache(item);
-                            // 清理内存
-                            UserSessionRegistry.removeSession(sessionId);
+                            SessionRedis.clearCache(sessionId);
+                            // 清除在线用户
+                            OnlineUserRedis.deleteCache(item);
+                            // 清除用户session
+                            UserSessionRedis.clearCache(item.getUserId(), sessionId);
+                            // 清理节点session
+                            BrokerSessionRedis.clearCache(item.getBrokerId(), sessionId);
                             continue;
                         }
                         // 只处理本客户端的
@@ -162,21 +172,21 @@ public class ClientInit implements CommandLineRunner {
                         }
                     }
                     page++;
-                } while (userList.size() >= size);
+                } while (sessionList.size() >= size);
             } catch (Exception e) {
                 logger.warn("online user check error!", e);
             }
         }
 
-        private void clear(UserVO user) {
-            String sessionId = user.getSessionId();
-            Long userId = UserSessionRegistry.getUser(sessionId);
-            // 清理Broker-Session
-            if (userId != null) {
-                BrokerUserSessionRedis.deleteCache(user.getBrokerId(), userId, sessionId);
-            }
-            // 清理Session-User
-            SessionUserRedis.deleteCache(user);
+        private void clear(SessionVO session) {
+            String sessionId = session.getSessionId();
+            SessionRedis.clearCache(sessionId);
+            // 清除在线用户
+            OnlineUserRedis.deleteCache(session);
+            // 清除用户session
+            UserSessionRedis.clearCache(session.getUserId(), sessionId);
+            // 清理节点session
+            BrokerSessionRedis.clearCache(session.getBrokerId(), sessionId);
             // 清理内存
             UserSessionRegistry.removeSession(sessionId);
         }
