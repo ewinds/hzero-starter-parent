@@ -45,7 +45,6 @@
         <module>hzero-starter-websocket</module>
         <module>hzero-starter-lock</module>
         <module>hzero-starter-register-event</module>
-        <module>hzero-starter-local-feign</module>
         <module>hzero-starter-feign-replay</module>
         <module>hzero-starter-apollo-config</module>
         <module>hzero-starter-metric</module>
